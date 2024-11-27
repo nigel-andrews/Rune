@@ -26,8 +26,4 @@ target_link_options(compile_options INTERFACE
 target_compile_definitions(compile_options INTERFACE $<$<CONFIG:Release>:NDEBUG>
                                                      $<$<CONFIG:Debug>:DEBUG>)
 
-add_executable(Rune src/main.cpp)
-
-set_target_properties(Rune PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF)
-
-target_link_libraries(Rune PRIVATE compile_options)
+add_subdirectory(Rune)
