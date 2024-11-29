@@ -27,3 +27,4 @@ target_compile_definitions(compile_options INTERFACE $<$<CONFIG:Release>:NDEBUG>
                                                      $<$<CONFIG:Debug>:DEBUG>)
 
 add_subdirectory(Rune)
+add_subdirectory(demo)

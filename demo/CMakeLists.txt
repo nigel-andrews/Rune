@@ -1,0 +1,5 @@
+project(demo)
+
+add_executable(demo src/main.cpp)
+
+target_link_libraries(demo PRIVATE compile_options Rune)
