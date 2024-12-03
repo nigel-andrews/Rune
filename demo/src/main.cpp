@@ -3,11 +3,11 @@
 
 int main()
 {
-    Rune::Application app;
+    auto app = Rune::Application::get();
 
-    app.start();
-    app.run();
-    app.stop();
+    app->start();
+    app->run();
+    app->stop();
 
     return 0;
 }
