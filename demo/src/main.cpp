@@ -5,9 +5,9 @@ int main()
 {
     Rune::Application app;
 
-    app.init();
-    app.update();
-    app.cleanup();
+    app.start();
+    app.run();
+    app.stop();
 
     return 0;
 }

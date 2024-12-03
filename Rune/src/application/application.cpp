@@ -1,21 +1,21 @@
-#include "application/application.h"
+#include "application.h"
 
 #include <print>
 
 namespace Rune
 {
-    void Application::init()
+    void Application::start()
     {
-        std::println("Application init");
+        std::println("Starting engine");
     }
 
-    void Application::update()
+    void Application::run()
     {
-        std::println("Application update");
+        std::println("Running engine");
     }
 
-    void Application::cleanup()
+    void Application::stop()
     {
-        std::println("Application cleanup");
+        std::println("Stopping engine");
     }
 } // namespace Rune
