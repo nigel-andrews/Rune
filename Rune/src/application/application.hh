@@ -1,6 +1,7 @@
 #pragma once
 
-#include "utils/traits.h"
+#include "platform/window.hh"
+#include "utils/traits.hh"
 
 namespace Rune
 {
@@ -13,5 +14,8 @@ namespace Rune
         void start();
         void run();
         void stop();
+
+    private:
+        // Window window_;
     };
 } // namespace Rune

@@ -1,1 +1,1 @@
-target_sources(Rune PRIVATE application.cpp)
+target_sources(Rune PRIVATE application.cc)
