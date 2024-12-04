@@ -1,5 +1,9 @@
 #include "window.hh"
 
+#include <cassert>
+
+#include "GLFW/glfw3.h"
+
 namespace Rune
 {
     Window::~Window()
@@ -17,6 +21,13 @@ namespace Rune
 
         window_ = glfwCreateWindow(width, height, application_name.data(),
                                    nullptr, nullptr);
+
+        assert(window_);
+    }
+
+    bool Window::should_close()
+    {
+        return glfwWindowShouldClose(window_);
     }
 
     void Window::destroy()

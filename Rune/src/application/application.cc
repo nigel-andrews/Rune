@@ -1,21 +1,30 @@
 #include "application.hh"
 
 #include <print>
+#include <stdexcept>
+
+#include "GLFW/glfw3.h"
 
 namespace Rune
 {
     void Application::start()
     {
-        std::println("Starting engine");
+        if (!glfwInit())
+            throw std::runtime_error(
+                "Application::start: Failed to initialize GLFW");
+
+        window_.init("Rune engine", 800, 600);
     }
 
     void Application::run()
     {
-        std::println("Running engine");
+        while (!window_.should_close())
+            glfwPollEvents();
     }
 
     void Application::stop()
     {
-        std::println("Stopping engine");
+        window_.destroy();
+        glfwTerminate();
     }
 } // namespace Rune

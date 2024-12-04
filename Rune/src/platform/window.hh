@@ -16,6 +16,7 @@ namespace Rune
 
         void init(std::string_view application_name, i32 width, i32 height);
         void destroy();
+        bool should_close();
 
         i32 width_get() const;
         i32 height_get() const;
