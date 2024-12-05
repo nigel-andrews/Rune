@@ -13,18 +13,19 @@ namespace Rune
             throw std::runtime_error(
                 "Application::start: Failed to initialize GLFW");
 
-        window_.init("Rune engine", 800, 600);
+        window_.init(config_.name, config_.width, config_.height);
+    }
+
+    void Application::config_set(Config config)
+    {
+        config_ = std::move(config);
     }
 
     void Application::on_frame_start()
-    {
-        std::println("Starting frame");
-    }
+    {}
 
     void Application::on_frame_end()
-    {
-        std::println("Ending frame");
-    }
+    {}
 
     void Application::run()
     {

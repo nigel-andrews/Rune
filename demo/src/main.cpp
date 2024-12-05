@@ -30,6 +30,8 @@ int main()
 {
     auto app = std::unique_ptr<Rune::Application>(create_application());
 
+    app->config_set({ "Demo application", 1280, 720 });
+
     app->start();
     app->run();
     app->stop();
