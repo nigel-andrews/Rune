@@ -3,10 +3,11 @@
 #include <string>
 
 #include "platform/window.hh"
+#include "utils/singleton.hh"
 
 namespace Rune
 {
-    class Application
+    class Application : Singleton<Application>
     {
     public:
         struct Config
@@ -26,6 +27,9 @@ namespace Rune
 
         virtual void on_frame_start();
         virtual void on_frame_end();
+
+    protected:
+        Application() = default;
 
     private:
         static bool exists_;

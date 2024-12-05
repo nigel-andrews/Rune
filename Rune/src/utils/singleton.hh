@@ -4,6 +4,9 @@
 
 namespace Rune
 {
+    // There is a remaining flaw : derived classes of T can be constructed and
+    // so must either have private constructors (or have a unique entry point
+    // controlled by the engine)
     template <typename T>
     class Singleton
         : NonCopyable
@@ -12,21 +15,13 @@ namespace Rune
     protected:
         static constexpr T& get_instance()
         {
-            struct ConstructGuard final : T
-            {
-                void prevent_construction() const noexcept override
-                {}
-            };
+            static T instance;
 
-            static ConstructGuard instance{};
             return instance;
         }
 
     protected:
         constexpr Singleton() = default;
         constexpr ~Singleton() = default;
-
-    private:
-        virtual void prevent_construction() const noexcept = 0;
     };
 } // namespace Rune
