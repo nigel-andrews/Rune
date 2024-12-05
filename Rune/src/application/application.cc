@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "GLFW/glfw3.h"
+#include "core/logger.hh"
 
 namespace Rune
 {
@@ -14,6 +15,9 @@ namespace Rune
                 "Application::start: Failed to initialize GLFW");
 
         window_.init(config_.name, config_.width, config_.height);
+        Logger::log(
+            Logger::Level::INFO, "Init application with window :", config_.name,
+            std::format("of size {}x{}", config_.width, config_.height));
     }
 
     void Application::config_set(Config config)
@@ -46,5 +50,6 @@ namespace Rune
     {
         window_.destroy();
         glfwTerminate();
+        Logger::log(Logger::Level::INFO, "Application shutdown");
     }
 } // namespace Rune
