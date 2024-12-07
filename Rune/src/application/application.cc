@@ -1,7 +1,6 @@
 #include "application.hh"
 
 #include <print>
-#include <stdexcept>
 
 #include "GLFW/glfw3.h"
 #include "core/logger.hh"
@@ -11,8 +10,7 @@ namespace Rune
     void Application::start()
     {
         if (!glfwInit())
-            throw std::runtime_error(
-                "Application::start: Failed to initialize GLFW");
+            Logger::abort("Application::start: Failed to initialize GLFW");
 
         window_.init(config_.name, config_.width, config_.height);
         Logger::log(
