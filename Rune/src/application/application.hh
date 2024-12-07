@@ -32,8 +32,6 @@ namespace Rune
         Application() = default;
 
     private:
-        static bool exists_;
-
         Config config_;
         // FIXME: Renderer should hold window
         Window window_;

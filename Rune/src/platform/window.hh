@@ -22,6 +22,7 @@ namespace Rune
         i32 height_get() const;
 
     private:
+        // NOTE: maybe the window state should be P-Impl
         GLFWwindow* window_ = nullptr;
         i32 width_;
         i32 height_;

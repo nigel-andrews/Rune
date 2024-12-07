@@ -11,14 +11,10 @@ public:
     ~DemoApplication() final = default;
 
     virtual void on_frame_start() final
-    {
-        std::println("Demo frame start");
-    }
+    {}
 
     virtual void on_frame_end() final
-    {
-        std::println("Demo frame end");
-    }
+    {}
 };
 
 Rune::Application* create_application()
