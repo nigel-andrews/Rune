@@ -3,9 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <VkBootstrap.h>
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_handles.hpp>
-#include <vulkan/vulkan_structs.hpp>
+#include <vulkan/vulkan.hpp>
 
 #include "core/logger.hh"
 #include "utils/vulkan_helpers.hh"
@@ -27,6 +25,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Initializing VulkanRenderer");
 
         window_ = window;
+
         u32 count;
         auto required_extensions = glfwGetRequiredInstanceExtensions(&count);
         std::vector<const char*> extensions;
@@ -34,7 +33,15 @@ namespace Rune
 
 #if defined(DEBUG) || !defined(NDEBUG)
         for (auto extension : extensions)
-            Logger::log(Logger::Level::INFO, "Found extension", extension);
+            Logger::log(Logger::Level::INFO, "Found instance extension",
+                        extension);
+
+        auto extension_properties = vk::enumerateInstanceExtensionProperties();
+
+        for (const auto& extension_property : extension_properties)
+            Logger::log(Logger::Level::INFO,
+                        "Found extension_property extension",
+                        extension_property.extensionName);
 #endif
 
         vkb::InstanceBuilder builder;
@@ -43,9 +50,11 @@ namespace Rune
             builder.set_app_name(app_name.data())
                 .require_api_version(1, 3)
                 .request_validation_layers(enable_validation_layers)
-                // .use_default_debug_messenger() // TODO: custom debug message
+                .use_default_debug_messenger() // TODO: custom debug message
                 .enable_extensions(extensions)
                 .build();
+
+        dispatch_ = builder_return->make_table();
 
         if (!builder_return)
             Logger::abort(builder_return.error().message());
@@ -95,8 +104,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
 
         vkDestroySurfaceKHR(instance_, surface_, nullptr);
-        // vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_,
-        // nullptr);
+        dispatch_.destroyDebugUtilsMessengerEXT(debug_messenger_, nullptr);
 
         // device_.destroy();
         instance_.destroy();

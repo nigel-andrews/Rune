@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
+#include "VkBootstrapDispatch.h"
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
 
@@ -22,6 +23,7 @@ namespace Rune
         Window* window_;
 
         vk::Instance instance_;
+        vkb::InstanceDispatchTable dispatch_;
         vk::PhysicalDevice gpu_;
         vk::Device device_;
         vk::SurfaceKHR surface_;
