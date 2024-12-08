@@ -29,7 +29,8 @@ namespace Rune::Logger
 
     // TODO: color output
     template <typename... Ts>
-    constexpr void log(Level log_level, Ts&&... args)
+    constexpr void log(Level log_level [[maybe_unused]],
+                       Ts&&... args [[maybe_unused]])
     {
 #if defined(DEBUG) || !defined(NDEBUG)
         static constexpr std::array string_repr{
