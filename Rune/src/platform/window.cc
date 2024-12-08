@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "GLFW/glfw3.h"
+#include "core/logger.hh"
 
 namespace Rune
 {
@@ -21,8 +22,9 @@ namespace Rune
 
         window_ = glfwCreateWindow(width, height, application_name.data(),
                                    nullptr, nullptr);
-
         assert(window_);
+
+        Logger::log(Logger::INFO, "Initialized window");
     }
 
     bool Window::should_close()

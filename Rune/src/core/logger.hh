@@ -2,12 +2,23 @@
 
 #include <array>
 #include <cstdlib>
-#include <exception>
+#include <filesystem>
 #include <iostream>
 #include <source_location>
 
 namespace Rune::Logger
 {
+    namespace
+    {
+        constexpr std::string
+        filename_from_location(const std::source_location& location)
+        {
+            return std::filesystem::path(location.file_name())
+                .filename()
+                .c_str();
+        }
+    } // namespace
+
     enum Level
     {
         FATAL = 0,
@@ -37,8 +48,17 @@ namespace Rune::Logger
           std::source_location location = std::source_location::current())
     {
         log(FATAL,
-            std::format("{}({}:{}): {}", location.file_name(), location.line(),
-                        location.column(), message));
+            std::format("{}({}:{}): {}", filename_from_location(location),
+                        location.line(), location.column(), message));
         std::abort();
+    }
+
+    constexpr void
+    error(std::string_view message,
+          std::source_location location = std::source_location::current())
+    {
+        log(ERROR,
+            std::format("{}({}:{}): {}", filename_from_location(location),
+                        location.line(), location.column(), message));
     }
 } // namespace Rune::Logger

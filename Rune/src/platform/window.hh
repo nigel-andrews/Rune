@@ -18,8 +18,22 @@ namespace Rune
         void destroy();
         bool should_close();
 
-        i32 width_get() const;
-        i32 height_get() const;
+        constexpr i32 width_get() const
+        {
+            return width_;
+        }
+
+        constexpr i32 height_get() const
+        {
+            return height_;
+        }
+
+        constexpr GLFWwindow* get() const
+        {
+            return window_;
+        }
+
+        GLFWwindow* window_get() const;
 
     private:
         // NOTE: maybe the window state should be P-Impl

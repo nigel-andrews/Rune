@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
-
+#include "app_config.hh"
 #include "platform/window.hh"
+#include "renderer/renderer.hh"
 #include "utils/singleton.hh"
 
 namespace Rune
@@ -10,16 +10,9 @@ namespace Rune
     class Application : Singleton<Application>
     {
     public:
-        struct Config
-        {
-            std::string name = "Application";
-            int width = 800;
-            int height = 600;
-        };
-
         virtual ~Application() = default;
 
-        void config_set(Config config);
+        void config_set(AppConfig config);
 
         void start();
         void run();
@@ -32,9 +25,9 @@ namespace Rune
         Application() = default;
 
     private:
-        Config config_;
-        // FIXME: Renderer should hold window
+        AppConfig config_;
         Window window_;
+        Renderer renderer_;
         bool running_;
         // TODO:: time
     };

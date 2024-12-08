@@ -10,15 +10,19 @@ namespace Rune
     void Application::start()
     {
         if (!glfwInit())
-            Logger::abort("Application::start: Failed to initialize GLFW");
+            Logger::abort("Failed to initialize GLFW");
+        else
+            Logger::log(Logger::INFO, "Initialized GLFW");
 
         window_.init(config_.name, config_.width, config_.height);
+        renderer_.init(RenderBackendType::VULKAN, config_, &window_);
+
         Logger::log(
             Logger::Level::INFO, "Init application with window :", config_.name,
             std::format("of size {}x{}", config_.width, config_.height));
     }
 
-    void Application::config_set(Config config)
+    void Application::config_set(AppConfig config)
     {
         config_ = std::move(config);
     }
@@ -46,7 +50,7 @@ namespace Rune
 
     void Application::stop()
     {
-        window_.destroy();
+        renderer_.shutdown();
         glfwTerminate();
         Logger::log(Logger::Level::INFO, "Application shutdown");
     }

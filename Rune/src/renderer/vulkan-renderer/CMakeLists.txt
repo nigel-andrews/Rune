@@ -1,5 +1,9 @@
 target_sources(Rune PRIVATE backend.cc)
 
+set(BUILD_SHARED_LIBS True)
+
+find_package(Vulkan REQUIRED)
+
 FetchContent_Declare(
   vulkan-hpp
   GIT_REPOSITORY https://github.com/KhronosGroup/Vulkan-Hpp.git
@@ -15,4 +19,4 @@ FetchContent_Declare(
   GIT_TAG v1.3.302)
 FetchContent_MakeAvailable(fetch_vk_bootstrap)
 
-target_link_libraries(Rune PRIVATE vk-bootstrap::vk-bootstrap)
+target_link_libraries(Rune PUBLIC vulkan vk-bootstrap::vk-bootstrap)

@@ -3,12 +3,13 @@
 #include <memory>
 
 #if 1
-#    include "vulkan/backend.hh"
+#    include "vulkan-renderer/backend.hh"
 #endif
 
 namespace Rune
 {
-    void Renderer::init(RenderBackendType type)
+    void Renderer::init(RenderBackendType type, const AppConfig& config,
+                        Window* window)
     {
         switch (type)
         {
@@ -17,7 +18,7 @@ namespace Rune
             break;
         }
 
-        backend_->init();
+        backend_->init(window, config.name, config.width, config.height);
     }
 
     void Renderer::draw_frame()
