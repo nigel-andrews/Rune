@@ -69,31 +69,28 @@ namespace Rune
                                        &surface));
         surface_ = surface;
 
-        // VkPhysicalDeviceVulkan13Features features {};
-        // // TODO: investigate more features
-        // //
-        // // Maybe this can be retrieved via a function plugged in by the
-        // client
-        // // for more customisation ?
-        // features.sType =
-        // VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-        // features.dynamicRendering = true;
-        // features.synchronization2 = true;
+        VkPhysicalDeviceVulkan13Features features{};
+        // TODO: investigate more features
         //
-        // vkb::PhysicalDeviceSelector selector{ vkb_instance };
-        //
-        // auto selected_gpu = selector
-        //     .set_minimum_version(1,4)
-        //     .set_surface(surface_)
-        //     .require_present()
-        //     .set_required_features_13(features)
-        //     .select();
-        //
-        // if (!selected_gpu)
-        //     Logger::abort("Failed to select appropriate GPU");
-        //
-        // gpu_ = selected_gpu.value();
-        // Logger::log(Logger::INFO, "Selected GPU :", selected_gpu->name);
+        // Maybe this can be retrieved via a function plugged in by the
+        // client for more customisation ?
+        features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+        features.dynamicRendering = true;
+        features.synchronization2 = true;
+
+        vkb::PhysicalDeviceSelector selector{ vkb_instance };
+
+        auto selected_gpu = selector.set_minimum_version(1, 3)
+                                .set_surface(surface_)
+                                .require_present()
+                                .set_required_features_13(features)
+                                .select();
+
+        if (!selected_gpu)
+            Logger::abort(selected_gpu.error().message());
+
+        gpu_ = selected_gpu.value();
+        Logger::log(Logger::INFO, "Selected GPU :", selected_gpu->name);
     }
 
     void VulkanRenderer::draw_frame()
@@ -106,7 +103,6 @@ namespace Rune
         vkDestroySurfaceKHR(instance_, surface_, nullptr);
         dispatch_.destroyDebugUtilsMessengerEXT(debug_messenger_, nullptr);
 
-        // device_.destroy();
         instance_.destroy();
     }
 } // namespace Rune
