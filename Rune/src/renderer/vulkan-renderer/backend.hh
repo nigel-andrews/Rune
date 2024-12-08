@@ -3,7 +3,7 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
-#include "VkBootstrapDispatch.h"
+#include "VkBootstrap.h"
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
 
@@ -18,7 +18,9 @@ namespace Rune
         void cleanup() final;
 
     private:
-        void init_vulkan();
+        vkb::Instance init_instance(std::string_view app_name);
+        void create_surface();
+        void select_physical_device(vkb::Instance& vkb_instance);
 
         Window* window_;
 

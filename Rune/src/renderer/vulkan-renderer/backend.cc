@@ -26,6 +26,26 @@ namespace Rune
 
         window_ = window;
 
+        auto vkb_instance = init_instance(app_name);
+        create_surface();
+        select_physical_device(vkb_instance);
+    }
+
+    void VulkanRenderer::draw_frame()
+    {}
+
+    void VulkanRenderer::cleanup()
+    {
+        Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
+
+        vkDestroySurfaceKHR(instance_, surface_, nullptr);
+        dispatch_.destroyDebugUtilsMessengerEXT(debug_messenger_, nullptr);
+
+        instance_.destroy();
+    }
+
+    vkb::Instance VulkanRenderer::init_instance(std::string_view app_name)
+    {
         u32 count;
         auto required_extensions = glfwGetRequiredInstanceExtensions(&count);
         std::vector<const char*> extensions;
@@ -64,11 +84,22 @@ namespace Rune
         auto vkb_instance = builder_return.value();
         instance_ = vkb_instance;
 
+        Logger::log(Logger::INFO, "Created Vulkan instance");
+
+        return vkb_instance;
+    }
+
+    void VulkanRenderer::create_surface()
+    {
         VkSurfaceKHR surface = VK_NULL_HANDLE;
-        VKCALL(glfwCreateWindowSurface(instance_, window->get(), nullptr,
+        VKCALL(glfwCreateWindowSurface(instance_, window_->get(), nullptr,
                                        &surface));
         surface_ = surface;
+        Logger::log(Logger::INFO, "Created Vulkan surface");
+    }
 
+    void VulkanRenderer::select_physical_device(vkb::Instance& vkb_instance)
+    {
         VkPhysicalDeviceVulkan13Features features{};
         // TODO: investigate more features
         //
@@ -91,18 +122,5 @@ namespace Rune
 
         gpu_ = selected_gpu.value();
         Logger::log(Logger::INFO, "Selected GPU :", selected_gpu->name);
-    }
-
-    void VulkanRenderer::draw_frame()
-    {}
-
-    void VulkanRenderer::cleanup()
-    {
-        Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
-
-        vkDestroySurfaceKHR(instance_, surface_, nullptr);
-        dispatch_.destroyDebugUtilsMessengerEXT(debug_messenger_, nullptr);
-
-        instance_.destroy();
     }
 } // namespace Rune
