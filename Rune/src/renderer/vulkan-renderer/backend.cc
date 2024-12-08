@@ -44,7 +44,7 @@ namespace Rune
                 .require_api_version(1, 3)
                 .request_validation_layers(enable_validation_layers)
                 // .use_default_debug_messenger() // TODO: custom debug message
-                // .enable_extensions(extensions)
+                .enable_extensions(extensions)
                 .build();
 
         if (!builder_return)
