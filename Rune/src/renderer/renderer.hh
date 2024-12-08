@@ -22,8 +22,10 @@ namespace Rune
         // TODO: Resize
         void draw_frame();
         void shutdown();
+        RenderBackendType type_get() const;
 
     private:
+        RenderBackendType type_;
         std::unique_ptr<RenderBackend> backend_;
     };
 } // namespace Rune
