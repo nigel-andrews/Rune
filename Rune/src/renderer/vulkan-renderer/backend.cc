@@ -27,6 +27,11 @@ namespace
 
 namespace Rune
 {
+    const RenderData& VulkanRenderer::current_frame_get()
+    {
+        return frames_[current_frame_ % MAX_IN_FLIGHT];
+    }
+
     void VulkanRenderer::init(Window* window, std::string_view app_name,
                               i32 /*width*/, i32 /*height*/)
     {
@@ -46,6 +51,7 @@ namespace Rune
         create_surface();
         select_devices();
         check_available_queues();
+        create_command_pools_and_buffers();
 
         initialized_ = true;
     }
@@ -55,11 +61,23 @@ namespace Rune
 
     void VulkanRenderer::cleanup()
     {
+        if (!initialized_)
+        {
+            Logger::log(Logger::WARN,
+                        "Attempting to cleanup non-initialized VulkanRenderer");
+            return;
+        }
+
         Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
 
         vkDestroySurfaceKHR(instance_, surface_, nullptr);
         bootstrap.dispatch.destroyDebugUtilsMessengerEXT(debug_messenger_,
                                                          nullptr);
+
+        vkDeviceWaitIdle(device_);
+
+        for (auto& frame : frames_)
+            device_.destroyCommandPool(frame.command_pool);
 
         device_.destroy();
         instance_.destroy();
@@ -167,5 +185,26 @@ namespace Rune
             Logger::abort(present_queue.error().message());
         else [[likely]]
             Logger::log(Logger::INFO, "Found present queue");
+    }
+
+    void VulkanRenderer::create_command_pools_and_buffers()
+    {
+        vk::CommandPoolCreateInfo create_info{
+            vk::CommandPoolCreateFlags(),
+            *bootstrap.device.get_queue_index(vkb::QueueType::graphics)
+        };
+
+        for (auto& frame : frames_)
+        {
+            frame.command_pool = device_.createCommandPool(create_info);
+            frame.primary_buffer =
+                device_
+                    .allocateCommandBuffers(vk::CommandBufferAllocateInfo(
+                        frame.command_pool, vk::CommandBufferLevel::ePrimary,
+                        1))
+                    .front();
+        }
+
+        Logger::log(Logger::INFO, "Created command pools and buffers");
     }
 } // namespace Rune

@@ -8,6 +8,16 @@
 
 namespace Rune
 {
+    struct RenderData
+    {
+        vk::CommandPool command_pool;
+        vk::CommandBuffer primary_buffer;
+    };
+
+#ifndef MAX_IN_FLIGHT
+    constexpr auto MAX_IN_FLIGHT = 2;
+#endif
+
     class VulkanRenderer final : public RenderBackend
     {
     public:
@@ -16,11 +26,14 @@ namespace Rune
         void draw_frame() final;
         void cleanup() final;
 
+        const RenderData& current_frame_get();
+
     private:
         void init_instance(std::string_view app_name);
         void create_surface();
         void select_devices();
         void check_available_queues() const;
+        void create_command_pools_and_buffers();
 
         Window* window_;
 
@@ -28,7 +41,10 @@ namespace Rune
         vk::PhysicalDevice gpu_;
         vk::Device device_;
         vk::SurfaceKHR surface_;
+
         vk::DebugUtilsMessengerEXT debug_messenger_;
+        std::array<RenderData, MAX_IN_FLIGHT> frames_;
+        u64 current_frame_;
         bool initialized_ = false;
     };
 } // namespace Rune

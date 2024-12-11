@@ -2,12 +2,14 @@
 
 #include <string>
 
+#include "utils/types.hh"
+
 namespace Rune
 {
     struct AppConfig
     {
         std::string name = "Application";
-        int width = 800;
-        int height = 600;
+        i32 width = 800;
+        i32 height = 600;
     };
 } // namespace Rune
