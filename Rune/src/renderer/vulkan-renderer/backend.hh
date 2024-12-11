@@ -29,5 +29,6 @@ namespace Rune
         vk::Device device_;
         vk::SurfaceKHR surface_;
         vk::DebugUtilsMessengerEXT debug_messenger_;
+        bool initialized_ = false;
     };
 } // namespace Rune

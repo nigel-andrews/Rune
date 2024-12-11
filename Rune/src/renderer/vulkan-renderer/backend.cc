@@ -30,6 +30,14 @@ namespace Rune
     void VulkanRenderer::init(Window* window, std::string_view app_name,
                               i32 /*width*/, i32 /*height*/)
     {
+        if (initialized_)
+        {
+            Logger::log(
+                Logger::WARN,
+                "Attempting to initialize already initialized VulkanRenderer");
+            return;
+        }
+
         Logger::log(Logger::INFO, "Initializing VulkanRenderer");
 
         window_ = window;
@@ -37,6 +45,9 @@ namespace Rune
         init_instance(app_name);
         create_surface();
         select_devices();
+        check_available_queues();
+
+        initialized_ = true;
     }
 
     void VulkanRenderer::draw_frame()
