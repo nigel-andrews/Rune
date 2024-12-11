@@ -3,7 +3,6 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
-#include "VkBootstrap.h"
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
 
@@ -18,14 +17,14 @@ namespace Rune
         void cleanup() final;
 
     private:
-        vkb::Instance init_instance(std::string_view app_name);
+        void init_instance(std::string_view app_name);
         void create_surface();
-        void select_physical_device(vkb::Instance& vkb_instance);
+        void select_devices();
+        void check_available_queues() const;
 
         Window* window_;
 
         vk::Instance instance_;
-        vkb::InstanceDispatchTable dispatch_;
         vk::PhysicalDevice gpu_;
         vk::Device device_;
         vk::SurfaceKHR surface_;

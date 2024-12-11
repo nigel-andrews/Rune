@@ -4,6 +4,7 @@
 #include <GLFW/glfw3.h>
 #include <VkBootstrap.h>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_handles.hpp>
 
 #include "core/logger.hh"
 #include "utils/vulkan_helpers.hh"
@@ -15,6 +16,13 @@ namespace
 #else
     constexpr bool enable_validation_layers = false;
 #endif
+
+    struct
+    {
+        vkb::Instance instance;
+        vkb::InstanceDispatchTable dispatch;
+        vkb::Device device;
+    } bootstrap;
 } // namespace
 
 namespace Rune
@@ -26,9 +34,9 @@ namespace Rune
 
         window_ = window;
 
-        auto vkb_instance = init_instance(app_name);
+        init_instance(app_name);
         create_surface();
-        select_physical_device(vkb_instance);
+        select_devices();
     }
 
     void VulkanRenderer::draw_frame()
@@ -39,12 +47,14 @@ namespace Rune
         Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
 
         vkDestroySurfaceKHR(instance_, surface_, nullptr);
-        dispatch_.destroyDebugUtilsMessengerEXT(debug_messenger_, nullptr);
+        bootstrap.dispatch.destroyDebugUtilsMessengerEXT(debug_messenger_,
+                                                         nullptr);
 
+        device_.destroy();
         instance_.destroy();
     }
 
-    vkb::Instance VulkanRenderer::init_instance(std::string_view app_name)
+    void VulkanRenderer::init_instance(std::string_view app_name)
     {
         u32 count;
         auto required_extensions = glfwGetRequiredInstanceExtensions(&count);
@@ -74,19 +84,17 @@ namespace Rune
                 .enable_extensions(extensions)
                 .build();
 
-        dispatch_ = builder_return->make_table();
+        bootstrap.dispatch = builder_return->make_table();
 
         if (!builder_return)
             Logger::abort(builder_return.error().message());
 
         debug_messenger_ = builder_return->debug_messenger;
 
-        auto vkb_instance = builder_return.value();
-        instance_ = vkb_instance;
+        bootstrap.instance = builder_return.value();
+        instance_ = bootstrap.instance.instance;
 
         Logger::log(Logger::INFO, "Created Vulkan instance");
-
-        return vkb_instance;
     }
 
     void VulkanRenderer::create_surface()
@@ -98,7 +106,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Created Vulkan surface");
     }
 
-    void VulkanRenderer::select_physical_device(vkb::Instance& vkb_instance)
+    void VulkanRenderer::select_devices()
     {
         VkPhysicalDeviceVulkan13Features features{};
         // TODO: investigate more features
@@ -109,7 +117,7 @@ namespace Rune
         features.dynamicRendering = true;
         features.synchronization2 = true;
 
-        vkb::PhysicalDeviceSelector selector{ vkb_instance };
+        vkb::PhysicalDeviceSelector selector{ bootstrap.instance };
 
         auto selected_gpu = selector.set_minimum_version(1, 3)
                                 .set_surface(surface_)
@@ -121,6 +129,32 @@ namespace Rune
             Logger::abort(selected_gpu.error().message());
 
         gpu_ = selected_gpu.value();
+
         Logger::log(Logger::INFO, "Selected GPU :", selected_gpu->name);
+
+        vkb::DeviceBuilder builder{ selected_gpu.value() };
+        bootstrap.device = builder.build().value();
+        device_ = bootstrap.device.device;
+
+        Logger::log(Logger::INFO, "Device created");
+    }
+
+    void VulkanRenderer::check_available_queues() const
+    {
+        auto graphics_queue =
+            bootstrap.device.get_queue(vkb::QueueType::graphics);
+
+        if (!graphics_queue) [[unlikely]]
+            Logger::abort(graphics_queue.error().message());
+        else [[likely]]
+            Logger::log(Logger::INFO, "Found graphics queue");
+
+        auto present_queue =
+            bootstrap.device.get_queue(vkb::QueueType::present);
+
+        if (!present_queue) [[unlikely]]
+            Logger::abort(present_queue.error().message());
+        else [[likely]]
+            Logger::log(Logger::INFO, "Found present queue");
     }
 } // namespace Rune
