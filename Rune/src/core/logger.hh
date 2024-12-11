@@ -27,19 +27,19 @@ namespace Rune::Logger
         ERROR,
     };
 
-    // TODO: color output
     template <typename... Ts>
     constexpr void log(Level log_level [[maybe_unused]],
                        Ts&&... args [[maybe_unused]])
     {
 #if defined(DEBUG) || !defined(NDEBUG)
         static constexpr std::array string_repr{
-            "FATAL",
-            "INFO",
-            "WARN",
-            "ERROR",
+            // TODO: extract escapes for easier use
+            "\033[7;31m[FATAL]\033[0m",
+            "\033[0;32m[INFO]\033[0m",
+            "\033[0;33m[WARN]\033[0m",
+            "\033[0;31m[ERROR]\033[0m",
         };
-        std::print(std::clog, "[{}]:", string_repr[log_level]);
+        std::print(std::clog, "{}:", string_repr[log_level]);
         ((std::clog << " " << std::forward<Ts>(args)), ...) << std::endl;
 #endif
     }
