@@ -10,6 +10,9 @@ namespace Rune
 {
     struct RenderData
     {
+        vk::Semaphore swapchain_semaphore;
+        vk::Semaphore render_semaphore;
+        vk::Fence render_fence;
         vk::CommandPool command_pool;
         vk::CommandBuffer primary_buffer;
     };
@@ -33,13 +36,20 @@ namespace Rune
         void create_surface();
         void select_devices();
         void check_available_queues() const;
+        void init_swapchain(i32 width, i32 height);
         void create_command_pools_and_buffers();
+        void init_sync_structs();
 
         Window* window_;
 
         vk::Instance instance_;
         vk::PhysicalDevice gpu_;
         vk::Device device_;
+        vk::SwapchainKHR swapchain_;
+        VkFormat swapchain_image_format_;
+        vk::Extent2D swapchain_extent_;
+        std::vector<VkImage> swapchain_images_;
+        std::vector<VkImageView> swapchain_images_view_;
         vk::SurfaceKHR surface_;
 
         vk::DebugUtilsMessengerEXT debug_messenger_;

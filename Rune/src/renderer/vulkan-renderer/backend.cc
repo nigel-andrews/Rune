@@ -17,6 +17,8 @@ namespace
     constexpr bool enable_validation_layers = false;
 #endif
 
+    constexpr auto TIMEOUT = 1000000000;
+
     struct
     {
         vkb::Instance instance;
@@ -33,7 +35,7 @@ namespace Rune
     }
 
     void VulkanRenderer::init(Window* window, std::string_view app_name,
-                              i32 /*width*/, i32 /*height*/)
+                              i32 width, i32 height)
     {
         if (initialized_)
         {
@@ -51,13 +53,25 @@ namespace Rune
         create_surface();
         select_devices();
         check_available_queues();
+        init_swapchain(width, height);
         create_command_pools_and_buffers();
 
         initialized_ = true;
     }
 
+    // TODO: do it
     void VulkanRenderer::draw_frame()
-    {}
+    {
+        auto& current_frame = current_frame_get();
+        while (
+            device_.waitForFences(current_frame.render_fence, VK_TRUE, TIMEOUT)
+            == vk::Result::eTimeout)
+            continue;
+
+        device_.resetFences(current_frame.render_fence);
+
+        // device_.acquireNextImageKHR();
+    }
 
     void VulkanRenderer::cleanup()
     {
@@ -70,11 +84,19 @@ namespace Rune
 
         Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
 
+        vkDeviceWaitIdle(device_);
+
+        device_.destroySwapchainKHR(swapchain_);
+
+        for (auto& image_view : swapchain_images_view_)
+            device_.destroyImageView(image_view);
+
+        swapchain_images_view_.clear();
+
         vkDestroySurfaceKHR(instance_, surface_, nullptr);
+
         bootstrap.dispatch.destroyDebugUtilsMessengerEXT(debug_messenger_,
                                                          nullptr);
-
-        vkDeviceWaitIdle(device_);
 
         for (auto& frame : frames_)
             device_.destroyCommandPool(frame.command_pool);
@@ -137,21 +159,29 @@ namespace Rune
 
     void VulkanRenderer::select_devices()
     {
-        VkPhysicalDeviceVulkan13Features features{};
+        VkPhysicalDeviceVulkan13Features features13{};
         // TODO: investigate more features
         //
         // Maybe this can be retrieved via a function plugged in by the
         // client for more customisation ?
-        features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-        features.dynamicRendering = true;
-        features.synchronization2 = true;
+        features13.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+        features13.dynamicRendering = true;
+        features13.synchronization2 = true;
+
+        VkPhysicalDeviceVulkan12Features features12{};
+        features12.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+        features12.bufferDeviceAddress = true;
+        features12.descriptorIndexing = true;
 
         vkb::PhysicalDeviceSelector selector{ bootstrap.instance };
 
         auto selected_gpu = selector.set_minimum_version(1, 3)
                                 .set_surface(surface_)
                                 .require_present()
-                                .set_required_features_13(features)
+                                .set_required_features_12(features12)
+                                .set_required_features_13(features13)
                                 .select();
 
         if (!selected_gpu)
@@ -170,6 +200,7 @@ namespace Rune
 
     void VulkanRenderer::check_available_queues() const
     {
+#if defined(DEBUG) || !defined(NDEBUG)
         auto graphics_queue =
             bootstrap.device.get_queue(vkb::QueueType::graphics);
 
@@ -185,13 +216,42 @@ namespace Rune
             Logger::abort(present_queue.error().message());
         else [[likely]]
             Logger::log(Logger::INFO, "Found present queue");
+#endif
+    }
+
+    void VulkanRenderer::init_swapchain(i32 width, i32 height)
+    {
+        vkb::SwapchainBuilder builder{ gpu_, device_, surface_ };
+
+        // XXX: learn more about formats
+        swapchain_image_format_ = VK_FORMAT_B8G8R8A8_UNORM;
+
+        auto result =
+            builder
+                .set_desired_format(
+                    { .format = swapchain_image_format_,
+                      .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
+                // NOTE: FIFO <=> VSync
+                .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+                .set_desired_extent(width, height)
+                .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+                .build();
+
+        if (!result)
+            Logger::abort(result.error().message());
+
+        swapchain_ = result.value();
+        swapchain_extent_ = result->extent;
+        swapchain_images_ = result->get_images().value();
+        swapchain_images_view_ = result->get_image_views().value();
+
+        Logger::log(Logger::INFO, "Created swapchain");
     }
 
     void VulkanRenderer::create_command_pools_and_buffers()
     {
         vk::CommandPoolCreateInfo create_info{
-            vk::CommandPoolCreateFlags(),
-            *bootstrap.device.get_queue_index(vkb::QueueType::graphics)
+            {}, *bootstrap.device.get_queue_index(vkb::QueueType::graphics)
         };
 
         for (auto& frame : frames_)
@@ -206,5 +266,22 @@ namespace Rune
         }
 
         Logger::log(Logger::INFO, "Created command pools and buffers");
+    }
+
+    void VulkanRenderer::init_sync_structs()
+    {
+        vk::FenceCreateInfo fence_create_info{
+            vk::FenceCreateFlagBits::eSignaled
+        };
+        vk::SemaphoreCreateInfo semaphore_create_info{};
+
+        for (auto& frame : frames_)
+        {
+            frame.render_fence = device_.createFence(fence_create_info);
+            frame.swapchain_semaphore =
+                device_.createSemaphore(semaphore_create_info);
+            frame.render_semaphore =
+                device_.createSemaphore(semaphore_create_info);
+        }
     }
 } // namespace Rune
