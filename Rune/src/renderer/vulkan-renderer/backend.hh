@@ -36,6 +36,7 @@ namespace Rune
         void create_surface();
         void select_devices();
         void check_available_queues() const;
+        void get_queue_indices_and_queue();
         void init_swapchain(i32 width, i32 height);
         void create_command_pools_and_buffers();
         void init_sync_structs();
@@ -51,6 +52,7 @@ namespace Rune
         std::vector<VkImage> swapchain_images_;
         std::vector<VkImageView> swapchain_images_view_;
         vk::SurfaceKHR surface_;
+        vk::Queue queue_;
 
         vk::DebugUtilsMessengerEXT debug_messenger_;
         std::array<RenderData, MAX_IN_FLIGHT> frames_;

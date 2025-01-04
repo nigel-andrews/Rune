@@ -42,7 +42,7 @@ namespace Rune
 
             on_frame_start();
 
-            // TODO: Render
+            renderer_.draw_frame();
 
             on_frame_end();
         }

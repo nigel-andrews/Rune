@@ -1,5 +1,8 @@
 #include "backend.hh"
 
+#include <cmath>
+#include <vulkan/vulkan_enums.hpp>
+#include <vulkan/vulkan_structs.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <VkBootstrap.h>
@@ -9,26 +12,77 @@
 #include "core/logger.hh"
 #include "utils/vulkan_helpers.hh"
 
-namespace
-{
-#if defined(DEBUG) || !defined(NDEBUG)
-    constexpr bool enable_validation_layers = true;
-#else
-    constexpr bool enable_validation_layers = false;
-#endif
-
-    constexpr auto TIMEOUT = 1000000000;
-
-    struct
-    {
-        vkb::Instance instance;
-        vkb::InstanceDispatchTable dispatch;
-        vkb::Device device;
-    } bootstrap;
-} // namespace
-
 namespace Rune
 {
+    namespace
+    {
+#if defined(DEBUG) || !defined(NDEBUG)
+        constexpr bool enable_validation_layers = true;
+#else
+        constexpr bool enable_validation_layers = false;
+#endif
+
+        constexpr auto TIMEOUT = 1000000000;
+
+        struct
+        {
+            vkb::Instance instance;
+            vkb::InstanceDispatchTable dispatch;
+            // FIXME: This is unused now, could be removed if
+            // check_available_queues is changed
+            vkb::Device device;
+        } bootstrap;
+
+        struct
+        {
+            u32 graphics;
+            u32 present;
+        } queue_family_indices;
+
+        // NOTE: This should probably be moved in some utility header
+        //
+        // Thanks https://vkguide.dev/docs/new_chapter_1/vulkan_mainloop_code/
+        vk::ImageSubresourceRange
+        image_subresource_range(vk::ImageAspectFlags aspect_mask)
+        {
+            // WARN: Default for now from VkGuide
+            vk::ImageSubresourceRange sub_image{};
+
+            // XXX: check validity of this
+            return sub_image.setAspectMask(aspect_mask)
+                .setLevelCount(VK_REMAINING_MIP_LEVELS)
+                .setLayerCount(VK_REMAINING_ARRAY_LAYERS);
+        }
+
+        void transition_image(vk::CommandBuffer command, VkImage image,
+                              vk::ImageLayout current_layout,
+                              vk::ImageLayout new_layout)
+        {
+            vk::ImageMemoryBarrier2 image_barrier{};
+
+            // WARN: Inefficient for now, still figuring this out
+            image_barrier
+                .setSrcStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                .setSrcAccessMask(vk::AccessFlagBits2::eMemoryWrite)
+                .setDstStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+                .setDstAccessMask(vk::AccessFlagBits2::eMemoryWrite
+                                  | vk::AccessFlagBits2::eMemoryRead)
+                .setOldLayout(current_layout)
+                .setNewLayout(new_layout)
+                .setSubresourceRange(
+                    image_subresource_range(vk::ImageAspectFlags{
+                        new_layout == vk::ImageLayout::eDepthAttachmentOptimal
+                            ? vk::ImageAspectFlagBits::eDepth
+                            : vk::ImageAspectFlagBits::eColor }))
+                .setImage(image);
+
+            vk::DependencyInfo dep_info{};
+            command.pipelineBarrier2(
+                dep_info.setImageMemoryBarrierCount(1).setImageMemoryBarriers(
+                    image_barrier));
+        }
+    } // namespace
+
     const RenderData& VulkanRenderer::current_frame_get()
     {
         return frames_[current_frame_ % MAX_IN_FLIGHT];
@@ -53,13 +107,14 @@ namespace Rune
         create_surface();
         select_devices();
         check_available_queues();
+        get_queue_indices_and_queue();
         init_swapchain(width, height);
         create_command_pools_and_buffers();
+        init_sync_structs();
 
         initialized_ = true;
     }
 
-    // TODO: do it
     void VulkanRenderer::draw_frame()
     {
         auto& current_frame = current_frame_get();
@@ -69,8 +124,68 @@ namespace Rune
             continue;
 
         device_.resetFences(current_frame.render_fence);
+        auto swapchain_image_index =
+            device_
+                .acquireNextImageKHR(swapchain_, TIMEOUT,
+                                     current_frame.swapchain_semaphore)
+                .value;
 
-        // device_.acquireNextImageKHR();
+        vk::CommandBuffer command = current_frame.primary_buffer;
+        command.reset();
+
+        // NOTE: One time submit -> each frame the buffer is submitted once then
+        // reset so might speedup
+        command.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags(
+            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)));
+        auto swapchain_image = swapchain_images_[swapchain_image_index];
+        transition_image(command, swapchain_image, vk::ImageLayout::eUndefined,
+                         vk::ImageLayout::eGeneral);
+
+        vk::ClearColorValue clear_value;
+        float flash = std::abs(std::sin(current_frame_ / 120.f));
+        clear_value.setFloat32({ 0.0f, 0.0f, flash, 1.0f });
+
+        auto clear_range =
+            image_subresource_range(vk::ImageAspectFlagBits::eColor);
+
+        command.clearColorImage(swapchain_image, vk::ImageLayout::eGeneral,
+                                &clear_value, 1, &clear_range);
+
+        transition_image(command, swapchain_image, vk::ImageLayout::eGeneral,
+                         vk::ImageLayout::ePresentSrcKHR);
+
+        command.end();
+
+        vk::SemaphoreSubmitInfo wait_info{
+            current_frame.swapchain_semaphore, 1,
+            vk::PipelineStageFlagBits2::eColorAttachmentOutput
+        };
+        vk::SemaphoreSubmitInfo signal_info{
+            current_frame.render_semaphore, 1,
+            vk::PipelineStageFlagBits2::eAllGraphics
+        };
+        vk::CommandBufferSubmitInfo command_info{ command };
+
+        vk::SubmitInfo2 submit_info{};
+        submit_info.setWaitSemaphoreInfoCount(1)
+            .setWaitSemaphoreInfos(wait_info)
+            .setSignalSemaphoreInfoCount(1)
+            .setSignalSemaphoreInfos(signal_info)
+            .setCommandBufferInfoCount(1)
+            .setCommandBufferInfos(command_info);
+
+        [[unlikely]] if (queue_.submit2(1, &submit_info,
+                                        current_frame.render_fence)
+                         != vk::Result::eSuccess)
+            Logger::log(Logger::WARN, "command submission failed");
+
+        [[unlikely]] if (queue_.presentKHR(vk::PresentInfoKHR{
+                             1, &current_frame.render_semaphore, 1, &swapchain_,
+                             &swapchain_image_index })
+                         != vk::Result::eSuccess)
+            Logger::log(Logger::WARN, "queue presentation failed");
+
+        ++current_frame_;
     }
 
     void VulkanRenderer::cleanup()
@@ -99,7 +214,12 @@ namespace Rune
                                                          nullptr);
 
         for (auto& frame : frames_)
+        {
             device_.destroyCommandPool(frame.command_pool);
+            device_.destroyFence(frame.render_fence);
+            device_.destroySemaphore(frame.render_semaphore);
+            device_.destroySemaphore(frame.swapchain_semaphore);
+        }
 
         device_.destroy();
         instance_.destroy();
@@ -219,6 +339,27 @@ namespace Rune
 #endif
     }
 
+    void VulkanRenderer::get_queue_indices_and_queue()
+    {
+        auto properties = gpu_.getQueueFamilyProperties2();
+        u32 i = 0;
+
+        for (const auto& property : properties)
+        {
+            if (property.queueFamilyProperties.queueFlags
+                & vk::QueueFlagBits::eGraphics)
+                queue_family_indices.graphics = i;
+
+            if (gpu_.getSurfaceSupportKHR(i, surface_))
+                queue_family_indices.present = i;
+
+            ++i;
+        }
+
+        queue_ = device_.getQueue2(
+            vk::DeviceQueueInfo2{ {}, queue_family_indices.graphics });
+    }
+
     void VulkanRenderer::init_swapchain(i32 width, i32 height)
     {
         vkb::SwapchainBuilder builder{ gpu_, device_, surface_ };
@@ -251,7 +392,8 @@ namespace Rune
     void VulkanRenderer::create_command_pools_and_buffers()
     {
         vk::CommandPoolCreateInfo create_info{
-            {}, *bootstrap.device.get_queue_index(vkb::QueueType::graphics)
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            queue_family_indices.graphics
         };
 
         for (auto& frame : frames_)
