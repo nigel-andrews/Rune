@@ -24,7 +24,4 @@ add_subdirectory(src)
 
 target_include_directories(Rune PUBLIC src)
 
-target_link_libraries(
-  Rune
-  PUBLIC glfw
-  PRIVATE compile_options)
+target_link_libraries(Rune PUBLIC compile_options glfw vendor)

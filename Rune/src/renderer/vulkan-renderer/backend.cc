@@ -415,6 +415,7 @@ namespace Rune
         vk::FenceCreateInfo fence_create_info{
             vk::FenceCreateFlagBits::eSignaled
         };
+
         vk::SemaphoreCreateInfo semaphore_create_info{};
 
         for (auto& frame : frames_)

@@ -26,5 +26,7 @@ target_link_options(compile_options INTERFACE
 target_compile_definitions(compile_options INTERFACE $<$<CONFIG:Release>:NDEBUG>
                                                      $<$<CONFIG:Debug>:DEBUG>)
 
+add_subdirectory(vendor)
+
 add_subdirectory(Rune)
 add_subdirectory(demo)

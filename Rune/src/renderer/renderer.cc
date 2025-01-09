@@ -2,6 +2,7 @@
 
 #include <memory>
 
+// FIXME: Defines
 #if 1
 #    include "vulkan-renderer/backend.hh"
 #endif
@@ -19,6 +20,7 @@ namespace Rune
         }
 
         backend_->init(window, config.name, config.width, config.height);
+        // TODO: init ImGui in function of the backend
     }
 
     void Renderer::draw_frame()
