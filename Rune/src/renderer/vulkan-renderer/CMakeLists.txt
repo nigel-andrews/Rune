@@ -19,4 +19,4 @@ FetchContent_Declare(
   GIT_TAG v1.3.302)
 FetchContent_MakeAvailable(fetch_vk_bootstrap)
 
-target_link_libraries(Rune PUBLIC vulkan vk-bootstrap::vk-bootstrap)
+target_link_libraries(Rune PRIVATE vulkan vk-bootstrap::vk-bootstrap)

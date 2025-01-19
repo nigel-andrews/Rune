@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "application/app_config.hh"
+#include "gui.hh"
 #include "render_backend.hh"
 
 namespace Rune
@@ -27,5 +28,6 @@ namespace Rune
     private:
         RenderBackendType type_;
         std::unique_ptr<RenderBackend> backend_;
+        Gui gui_;
     };
 } // namespace Rune

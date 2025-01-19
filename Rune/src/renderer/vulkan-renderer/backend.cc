@@ -3,6 +3,9 @@
 #include <cmath>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
+
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_vulkan.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <VkBootstrap.h>
@@ -113,10 +116,93 @@ namespace Rune
         init_sync_structs();
 
         initialized_ = true;
+
+        init_imgui();
+    }
+
+    void VulkanRenderer::init_imgui()
+    {
+        std::array pool_sizes = {
+            vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler,
+                                    1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer,
+                                    1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer,
+                                    1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic,
+                                    1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
+            vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 }
+        };
+
+        vk::DescriptorPoolCreateInfo pool_info{
+            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet
+        };
+
+        for (VkDescriptorPoolSize& pool_size : pool_sizes)
+            pool_info.maxSets += pool_size.descriptorCount;
+
+        pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
+        pool_info.pPoolSizes = pool_sizes.data();
+
+        if (device_.createDescriptorPool(&pool_info, nullptr,
+                                         &imgui_descriptor_pool_)
+            != vk::Result::eSuccess)
+        {
+            Logger::log(
+                Logger::WARN,
+                "Failed to initialize ImGui descriptor pools, skipping");
+            return;
+        }
+
+        ImGui_ImplGlfw_InitForVulkan(window_->get(), true);
+
+        ImGui_ImplVulkan_InitInfo info{};
+        info.Instance = instance_;
+        info.PhysicalDevice = gpu_;
+        info.Device = device_;
+        info.QueueFamily = queue_family_indices.graphics;
+        info.Queue = queue_;
+        info.PipelineCache = VK_NULL_HANDLE;
+        info.DescriptorPool = imgui_descriptor_pool_;
+        info.MinImageCount = 3;
+        info.ImageCount = 3;
+        info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+        info.UseDynamicRendering = true;
+
+        info.PipelineRenderingCreateInfo = {};
+        info.PipelineRenderingCreateInfo.sType =
+            VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+        info.PipelineRenderingCreateInfo.pColorAttachmentFormats =
+            &swapchain_image_format_;
+
+        ImGui_ImplVulkan_Init(&info);
+        ImGui_ImplVulkan_CreateFontsTexture();
+
+        imgui_initialized_ = true;
+        Logger::log(Logger::INFO, "ImGui initialized for Vulkan backend");
+    }
+
+    bool VulkanRenderer::is_imgui_initialized()
+    {
+        return imgui_initialized_;
+    }
+
+    void VulkanRenderer::imgui_backend_frame()
+    {
+        ImGui_ImplVulkan_NewFrame();
     }
 
     void VulkanRenderer::draw_frame()
     {
+        imgui_backend_frame();
+
         auto& current_frame = current_frame_get();
         while (
             device_.waitForFences(current_frame.render_fence, VK_TRUE, TIMEOUT)
@@ -220,6 +306,9 @@ namespace Rune
             device_.destroySemaphore(frame.render_semaphore);
             device_.destroySemaphore(frame.swapchain_semaphore);
         }
+
+        ImGui_ImplVulkan_Shutdown();
+        device_.destroyDescriptorPool(imgui_descriptor_pool_);
 
         device_.destroy();
         instance_.destroy();

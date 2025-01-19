@@ -19,17 +19,23 @@ namespace Rune
             break;
         }
 
+        gui_.init_context();
         backend_->init(window, config.name, config.width, config.height);
-        // TODO: init ImGui in function of the backend
     }
 
     void Renderer::draw_frame()
     {
+        if (backend_->is_imgui_initialized())
+        {
+            backend_->imgui_backend_frame();
+            gui_.draw_frame();
+        }
         backend_->draw_frame();
     }
 
     void Renderer::shutdown()
     {
         backend_->cleanup();
+        gui_.shutdown();
     }
 } // namespace Rune

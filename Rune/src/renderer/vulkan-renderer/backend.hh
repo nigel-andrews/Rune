@@ -26,6 +26,9 @@ namespace Rune
     public:
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
+        void init_imgui();
+        void imgui_backend_frame() final;
+        bool is_imgui_initialized() final;
         void draw_frame() final;
         void cleanup() final;
 
@@ -53,10 +56,12 @@ namespace Rune
         std::vector<VkImageView> swapchain_images_view_;
         vk::SurfaceKHR surface_;
         vk::Queue queue_;
+        vk::DescriptorPool imgui_descriptor_pool_;
 
         vk::DebugUtilsMessengerEXT debug_messenger_;
         std::array<RenderData, MAX_IN_FLIGHT> frames_;
         u64 current_frame_;
         bool initialized_ = false;
+        bool imgui_initialized_ = false;
     };
 } // namespace Rune
