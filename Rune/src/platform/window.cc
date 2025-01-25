@@ -24,6 +24,9 @@ namespace Rune
                                    nullptr, nullptr);
         assert(window_);
 
+        width_ = width;
+        height_ = height;
+
         Logger::log(Logger::INFO, "Initialized window");
     }
 
