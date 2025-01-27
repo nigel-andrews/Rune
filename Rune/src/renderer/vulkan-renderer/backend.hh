@@ -1,5 +1,11 @@
 #pragma once
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#include <vk_mem_alloc.h>
+#pragma GCC diagnostic pop
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
@@ -15,6 +21,15 @@ namespace Rune
         vk::Fence render_fence;
         vk::CommandPool command_pool;
         vk::CommandBuffer primary_buffer;
+    };
+
+    struct VulkanImage
+    {
+        vk::Image image;
+        vk::ImageView image_view;
+        vk::Extent3D image_extent;
+        vk::Format image_format;
+        VmaAllocation allocation;
     };
 
 #ifndef MAX_IN_FLIGHT
@@ -40,6 +55,7 @@ namespace Rune
         void select_devices();
         void check_available_queues() const;
         void get_queue_indices_and_queue();
+        void init_allocator();
         void init_swapchain(i32 width, i32 height);
         void create_command_pools_and_buffers();
         void init_sync_structs();
@@ -57,6 +73,9 @@ namespace Rune
         vk::SurfaceKHR surface_;
         vk::Queue queue_;
         vk::DescriptorPool imgui_descriptor_pool_;
+        VmaAllocator allocator_ = VK_NULL_HANDLE;
+        VulkanImage draw_image_;
+        vk::Extent2D draw_image_extent_;
 
         vk::DebugUtilsMessengerEXT debug_messenger_;
         std::array<RenderData, MAX_IN_FLIGHT> frames_;
