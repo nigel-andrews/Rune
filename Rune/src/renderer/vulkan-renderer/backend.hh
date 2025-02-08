@@ -73,7 +73,6 @@ namespace Rune
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
         void init_imgui();
-        void imgui_backend_frame() final;
         bool is_imgui_initialized() final;
         void draw_frame() final;
         void cleanup() final;
@@ -93,6 +92,8 @@ namespace Rune
         void init_descriptors();
         void init_pipelines();
         void init_background_pipelines();
+
+        void imgui_backend_frame(vk::CommandBuffer command, vk::ImageView view);
 
     private:
         Window* window_;

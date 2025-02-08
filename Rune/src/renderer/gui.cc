@@ -19,9 +19,6 @@ namespace Rune
         ImGui::ShowDemoWindow();
 
         ImGui::Render();
-
-        // FIXME: The GUI will need to call the backend in order to render the
-        // window
     }
 
     void Gui::shutdown()

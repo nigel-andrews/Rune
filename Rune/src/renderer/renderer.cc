@@ -27,9 +27,9 @@ namespace Rune
     {
         if (backend_->is_imgui_initialized())
         {
-            backend_->imgui_backend_frame();
             gui_.draw_frame();
         }
+
         backend_->draw_frame();
     }
 

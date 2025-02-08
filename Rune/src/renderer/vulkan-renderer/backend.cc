@@ -13,6 +13,7 @@
 
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
+#include "imgui.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <VkBootstrap.h>
@@ -202,6 +203,38 @@ namespace Rune
 
             return device.createShaderModule(module_info);
         }
+
+        vk::RenderingAttachmentInfo attachment_info(
+            vk::ImageView image_view, vk::ImageLayout layout,
+            std::optional<vk::ClearValue> clear_value = std::nullopt)
+        {
+            auto rendering_attachment_info =
+                vk::RenderingAttachmentInfo{}
+                    .setImageView(image_view)
+                    .setImageLayout(layout)
+                    .setLoadOp(clear_value ? vk::AttachmentLoadOp::eClear
+                                           : vk::AttachmentLoadOp::eLoad)
+                    .setStoreOp(vk::AttachmentStoreOp::eStore);
+
+            if (clear_value)
+                rendering_attachment_info.setClearValue(*clear_value);
+
+            return rendering_attachment_info;
+        }
+
+        vk::RenderingInfo rendering_info(
+            vk::Extent2D render_extent,
+            const vk::RenderingAttachmentInfo& color_attachment,
+            const vk::RenderingAttachmentInfo* depth_attachment = nullptr,
+            const vk::RenderingAttachmentInfo* stencil_attachment = nullptr)
+        {
+            return vk::RenderingInfo{}
+                .setRenderArea(vk::Rect2D{ vk::Offset2D{}, render_extent })
+                .setLayerCount(1)
+                .setColorAttachments(color_attachment)
+                .setPDepthAttachment(depth_attachment)
+                .setPStencilAttachment(stencil_attachment);
+        }
     } // namespace
 
     // FIXME: move to different file
@@ -356,15 +389,24 @@ namespace Rune
         return imgui_initialized_;
     }
 
-    void VulkanRenderer::imgui_backend_frame()
+    void VulkanRenderer::imgui_backend_frame(vk::CommandBuffer command,
+                                             vk::ImageView view)
     {
         ImGui_ImplVulkan_NewFrame();
+
+        auto color_attachment =
+            attachment_info(view, vk::ImageLayout::eColorAttachmentOptimal);
+        auto render_info = rendering_info(swapchain_extent_, color_attachment);
+
+        command.beginRendering(render_info);
+
+        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
+
+        command.endRendering();
     }
 
     void VulkanRenderer::draw_frame()
     {
-        imgui_backend_frame();
-
         auto& current_frame = current_frame_get();
         while (
             device_.waitForFences(current_frame.render_fence, VK_TRUE, TIMEOUT)
@@ -393,10 +435,10 @@ namespace Rune
                          vk::ImageLayout::eUndefined,
                          vk::ImageLayout::eGeneral);
 
-        vk::ClearColorValue clear_value;
-        float flash = std::abs(std::sin(current_frame_ / 120.f));
-        clear_value.setFloat32({ 0.0f, 0.0f, flash, 1.0f });
-
+        // vk::ClearColorValue clear_value;
+        // float flash = std::abs(std::sin(current_frame_ / 120.f));
+        // clear_value.setFloat32({ 0.0f, 0.0f, flash, 1.0f });
+        //
         // auto clear_range =
         //     image_subresource_range(vk::ImageAspectFlagBits::eColor);
 
@@ -419,9 +461,21 @@ namespace Rune
         copy_images(command, draw_image_.image, swapchain_image,
                     draw_image_extent_, swapchain_extent_);
 
-        transition_image(command, swapchain_image,
-                         vk::ImageLayout::eTransferDstOptimal,
-                         vk::ImageLayout::ePresentSrcKHR);
+        if (imgui_initialized_)
+        {
+            transition_image(command, swapchain_image,
+                             vk::ImageLayout::eTransferDstOptimal,
+                             vk::ImageLayout::eColorAttachmentOptimal);
+            imgui_backend_frame(command,
+                                swapchain_images_view_[swapchain_image_index]);
+            transition_image(command, swapchain_image,
+                             vk::ImageLayout::eColorAttachmentOptimal,
+                             vk::ImageLayout::ePresentSrcKHR);
+        }
+        else
+            transition_image(command, swapchain_image,
+                             vk::ImageLayout::eTransferDstOptimal,
+                             vk::ImageLayout::ePresentSrcKHR);
 
         command.end();
 
