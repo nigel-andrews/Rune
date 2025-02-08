@@ -40,6 +40,7 @@ namespace Rune::Logger
             "\033[0;31m[ERROR]\033[0m",
         };
         std::print(std::clog, "{}:", string_repr[log_level]);
+        std::clog << std::boolalpha;
         ((std::clog << " " << std::forward<Ts>(args)), ...) << std::endl;
 #endif
     }

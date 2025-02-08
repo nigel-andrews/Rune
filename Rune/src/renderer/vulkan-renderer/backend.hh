@@ -14,6 +14,37 @@
 
 namespace Rune
 {
+    class DescriptorPool
+    {
+    public:
+        // NOTE: This is from the VkGuide still, not sure about the ratio
+        struct SetInfo
+        {
+            vk::DescriptorType type;
+            float ratio;
+        };
+
+        constexpr DescriptorPool()
+        {}
+
+        void device_set(vk::Device device)
+        {
+            device_ = device;
+        }
+
+        void init(u32 max_sets, std::span<SetInfo> infos);
+
+        void reset();
+
+        void destroy();
+
+        vk::DescriptorSet allocate(std::span<vk::DescriptorSetLayout> layouts);
+
+    private:
+        vk::Device device_;
+        vk::DescriptorPool pool_;
+    };
+
     struct RenderData
     {
         vk::Semaphore swapchain_semaphore;
@@ -59,7 +90,11 @@ namespace Rune
         void init_swapchain(i32 width, i32 height);
         void create_command_pools_and_buffers();
         void init_sync_structs();
+        void init_descriptors();
+        void init_pipelines();
+        void init_background_pipelines();
 
+    private:
         Window* window_;
 
         vk::Instance instance_;
@@ -74,6 +109,15 @@ namespace Rune
         vk::Queue queue_;
         vk::DescriptorPool imgui_descriptor_pool_;
         VmaAllocator allocator_ = VK_NULL_HANDLE;
+        DescriptorPool pool_;
+        // maybe a map to be able to distinguish layouts
+        std::vector<vk::DescriptorSetLayout> draw_image_descriptor_layouts_;
+        vk::DescriptorSet draw_image_descriptors_;
+
+        // FIXME: from vkguide
+        //
+        vk::Pipeline gradient_pipeline_;
+        vk::PipelineLayout gradient_pipeline_layout_;
         VulkanImage draw_image_;
         vk::Extent2D draw_image_extent_;
 

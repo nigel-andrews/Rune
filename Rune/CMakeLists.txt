@@ -18,6 +18,7 @@ FetchContent_Declare(
   GIT_TAG 3.3.9)
 FetchContent_MakeAvailable(glfw)
 
+# FIXME: This should be only at backend level
 FetchContent_Declare(
   vma
   GIT_REPOSITORY

@@ -1,3 +1,4 @@
+# FIXME: This should probably be a static lib
 target_sources(Rune PRIVATE backend.cc)
 
 set(BUILD_SHARED_LIBS True)

@@ -2,6 +2,12 @@
 #include "backend.hh"
 
 #include <cmath>
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <initializer_list>
+#include <optional>
+#include <span>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -14,7 +20,22 @@
 #include <vulkan/vulkan_handles.hpp>
 
 #include "core/logger.hh"
-#include "utils/vulkan_helpers.hh"
+
+namespace fs = std::filesystem;
+
+#define VKASSERT(Expr, Message)                                                \
+    do                                                                         \
+    {                                                                          \
+        if (auto result = (Expr); result != vk::Result::eSuccess)              \
+            Logger::abort((Message));                                          \
+    } while (false)
+
+#define VKWARN(Expr, Message)                                                  \
+    do                                                                         \
+    {                                                                          \
+        if (auto result = (Expr); result != vk::Result::eSuccess)              \
+            Logger::log(Logger::WARN, (Message));                              \
+    } while (false)
 
 namespace Rune
 {
@@ -114,7 +135,113 @@ namespace Rune
 
             command.blitImage2(&blit_info);
         }
+
+        // FIXME: move to utils folder
+        struct DescriptorLayoutBuilder
+        {
+            DescriptorLayoutBuilder(vk::Device device)
+                : device{ device }
+                , bindings{}
+            {}
+
+            vk::DescriptorSetLayout
+            build(vk::ShaderStageFlags shader_stages, void* pNext = nullptr,
+                  vk::DescriptorSetLayoutCreateFlags create_flags = {})
+            {
+                for (auto& binding : bindings)
+                    binding.stageFlags |= shader_stages;
+
+                auto create_info = vk::DescriptorSetLayoutCreateInfo{}
+                                       .setBindings(bindings)
+                                       .setFlags(create_flags)
+                                       .setPNext(pNext);
+
+                vk::DescriptorSetLayout layout{};
+
+                VKASSERT(device.createDescriptorSetLayout(&create_info, nullptr,
+                                                          &layout),
+                         "Failed to create desciptor set layout");
+
+                return layout;
+            }
+
+            void bind(u32 binding, vk::DescriptorType type)
+            {
+                bindings.emplace_back(binding, type, 1);
+            }
+
+            vk::Device device;
+            std::vector<vk::DescriptorSetLayoutBinding> bindings;
+        };
+
+        // FIXME: to utils file
+        std::optional<vk::ShaderModule> load_shader(const fs::path& shader_path,
+                                                    vk::Device device)
+        {
+            std::ifstream shader_file(shader_path,
+                                      std::ios::ate | std::ios::binary);
+
+            if (!shader_file.is_open())
+            {
+                Logger::log(Logger::WARN, "Failed to open file at ",
+                            shader_path);
+                return std::nullopt;
+            }
+
+            u64 code_size = shader_file.tellg();
+
+            std::vector<u32> buffer(code_size / sizeof(u32));
+
+            shader_file.seekg(0);
+            shader_file.read((char*)buffer.data(), code_size);
+            shader_file.close();
+
+            auto module_info =
+                vk::ShaderModuleCreateInfo{}.setCode(buffer).setCodeSize(
+                    code_size);
+
+            return device.createShaderModule(module_info);
+        }
     } // namespace
+
+    // FIXME: move to different file
+    void DescriptorPool::init(u32 max_sets, std::span<SetInfo> infos)
+    {
+        std::vector<vk::DescriptorPoolSize> pool_sizes{};
+
+        for (auto info : infos)
+            pool_sizes.emplace_back(info.type, info.ratio * max_sets);
+
+        auto create_info =
+            vk::DescriptorPoolCreateInfo{}.setMaxSets(max_sets).setPoolSizes(
+                pool_sizes);
+        VKWARN(device_.createDescriptorPool(&create_info, nullptr, &pool_),
+               "Failed to create DescriptorPool");
+    }
+
+    void DescriptorPool::reset()
+    {
+        device_.resetDescriptorPool(pool_);
+    }
+
+    void DescriptorPool::destroy()
+    {
+        device_.destroyDescriptorPool(pool_);
+    }
+
+    vk::DescriptorSet
+    DescriptorPool::allocate(std::span<vk::DescriptorSetLayout> layouts)
+    {
+        auto alloc_info = vk::DescriptorSetAllocateInfo{}
+                              .setSetLayouts(layouts)
+                              .setDescriptorPool(pool_);
+
+        vk::DescriptorSet set{};
+        VKWARN(device_.allocateDescriptorSets(&alloc_info, &set),
+               "Failed to allocate descript sets");
+
+        return set;
+    }
 
     const RenderData& VulkanRenderer::current_frame_get()
     {
@@ -145,6 +272,8 @@ namespace Rune
         init_swapchain(width, height);
         create_command_pools_and_buffers();
         init_sync_structs();
+        init_descriptors();
+        init_pipelines();
 
         initialized_ = true;
 
@@ -181,6 +310,8 @@ namespace Rune
         pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
         pool_info.pPoolSizes = pool_sizes.data();
 
+        // Using VKWARN here causes validation error because of the do
+        // while(false)
         if (device_.createDescriptorPool(&pool_info, nullptr,
                                          &imgui_descriptor_pool_)
             != vk::Result::eSuccess)
@@ -266,11 +397,16 @@ namespace Rune
         float flash = std::abs(std::sin(current_frame_ / 120.f));
         clear_value.setFloat32({ 0.0f, 0.0f, flash, 1.0f });
 
-        auto clear_range =
-            image_subresource_range(vk::ImageAspectFlagBits::eColor);
+        // auto clear_range =
+        //     image_subresource_range(vk::ImageAspectFlagBits::eColor);
 
-        command.clearColorImage(draw_image_.image, vk::ImageLayout::eGeneral,
-                                &clear_value, 1, &clear_range);
+        command.bindPipeline(vk::PipelineBindPoint::eCompute,
+                             gradient_pipeline_);
+        command.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
+                                   gradient_pipeline_layout_, 0,
+                                   draw_image_descriptors_, nullptr);
+        command.dispatch(std::ceil(draw_image_extent_.width / 16.),
+                         std::ceil(draw_image_extent_.height / 16.), 1);
 
         transition_image(command, draw_image_.image, vk::ImageLayout::eGeneral,
                          vk::ImageLayout::eTransferSrcOptimal);
@@ -309,20 +445,19 @@ namespace Rune
             .setCommandBufferInfoCount(1)
             .setCommandBufferInfos(command_info);
 
-        [[unlikely]] if (queue_.submit2(1, &submit_info,
-                                        current_frame.render_fence)
-                         != vk::Result::eSuccess)
-            Logger::log(Logger::WARN, "command submission failed");
+        VKWARN(queue_.submit2(1, &submit_info, current_frame.render_fence),
+               "command submission failed");
 
-        [[unlikely]] if (queue_.presentKHR(vk::PresentInfoKHR{
-                             1, &current_frame.render_semaphore, 1, &swapchain_,
-                             &swapchain_image_index })
-                         != vk::Result::eSuccess)
-            Logger::log(Logger::WARN, "queue presentation failed");
-
+        VKWARN(queue_.presentKHR(
+                   vk::PresentInfoKHR{ 1, &current_frame.render_semaphore, 1,
+                                       &swapchain_, &swapchain_image_index }),
+               "queue presentation failed");
         ++current_frame_;
     }
 
+    // FIXME: Handle sigint for graceful shutdown
+    // FIXME: Use a deletion queue
+    //
     void VulkanRenderer::cleanup()
     {
         if (!initialized_)
@@ -361,6 +496,13 @@ namespace Rune
 
         ImGui_ImplVulkan_Shutdown();
         device_.destroyDescriptorPool(imgui_descriptor_pool_);
+        pool_.destroy();
+
+        for (auto layout : draw_image_descriptor_layouts_)
+            device_.destroyDescriptorSetLayout(layout);
+
+        device_.destroyPipelineLayout(gradient_pipeline_layout_);
+        device_.destroyPipeline(gradient_pipeline_);
 
         device_.destroy();
         instance_.destroy();
@@ -412,8 +554,9 @@ namespace Rune
     void VulkanRenderer::create_surface()
     {
         VkSurfaceKHR surface = VK_NULL_HANDLE;
-        VKCALL(glfwCreateWindowSurface(instance_, window_->get(), nullptr,
-                                       &surface));
+        VKASSERT(static_cast<vk::Result>(glfwCreateWindowSurface(
+                     instance_, window_->get(), nullptr, &surface)),
+                 "Failed to create window surface");
         surface_ = surface;
         Logger::log(Logger::INFO, "Created Vulkan surface");
     }
@@ -455,6 +598,7 @@ namespace Rune
         vkb::DeviceBuilder builder{ selected_gpu.value() };
         context.device = builder.build().value();
         device_ = context.device.device;
+        pool_.device_set(device_);
 
         Logger::log(Logger::INFO, "Device created");
     }
@@ -586,10 +730,9 @@ namespace Rune
             .setLayerCount(1)
             .setAspectMask(vk::ImageAspectFlagBits::eColor);
 
-        if (device_.createImageView(&view_info, nullptr,
-                                    &draw_image_.image_view)
-            != vk::Result::eSuccess)
-            Logger::abort(result.error().message());
+        VKASSERT(device_.createImageView(&view_info, nullptr,
+                                         &draw_image_.image_view),
+                 "Failed to create image view");
 
         Logger::log(Logger::INFO, "Created swapchain and draw image");
     }
@@ -632,4 +775,85 @@ namespace Rune
                 device_.createSemaphore(semaphore_create_info);
         }
     }
+
+    void VulkanRenderer::init_descriptors()
+    {
+        std::vector<DescriptorPool::SetInfo> set_infos{
+            { vk::DescriptorType::eStorageImage, 1 },
+        };
+
+        // Device in pool is set when it is selected
+        pool_.init(10, set_infos);
+
+        {
+            DescriptorLayoutBuilder builder{ device_ };
+            builder.bind(0, vk::DescriptorType::eStorageImage);
+            draw_image_descriptor_layouts_.push_back(
+                builder.build(vk::ShaderStageFlagBits::eCompute));
+        }
+
+        draw_image_descriptors_ =
+            pool_.allocate(draw_image_descriptor_layouts_);
+
+        auto image_info = vk::DescriptorImageInfo{}
+                              .setImageLayout(vk::ImageLayout::eGeneral)
+                              .setImageView(draw_image_.image_view);
+
+        auto write_descriptor_set =
+            vk::WriteDescriptorSet{}
+                .setDstBinding(0)
+                .setDstSet(draw_image_descriptors_)
+                .setDescriptorCount(1)
+                .setDescriptorType(vk::DescriptorType::eStorageImage)
+                .setImageInfo(image_info);
+
+        device_.updateDescriptorSets(1, &write_descriptor_set, 0, nullptr);
+    }
+
+    void VulkanRenderer::init_pipelines()
+    {
+        init_background_pipelines();
+    }
+
+    void VulkanRenderer::init_background_pipelines()
+    {
+        auto pipeline_layout_create_info =
+            vk::PipelineLayoutCreateInfo{}.setSetLayouts(
+                draw_image_descriptor_layouts_);
+        gradient_pipeline_layout_ =
+            device_.createPipelineLayout(pipeline_layout_create_info);
+
+        // FIXME: better path handling for this (maybe a define added in the
+        // CMake after compiling the shader)
+        fs::path shader_path =
+            "build/debug/Rune/src/renderer/shaders/compute.spv";
+        auto compute_shader = load_shader(shader_path, device_);
+
+        if (!compute_shader)
+            Logger::abort(std::format("Failed to load compute shader !"));
+
+        auto pipeline_shader_stage_create_info =
+            vk::PipelineShaderStageCreateInfo{}
+                .setModule(*compute_shader)
+                .setStage(vk::ShaderStageFlagBits::eCompute)
+                .setPName("main");
+
+        auto compute_pipeline_create_info =
+            vk::ComputePipelineCreateInfo{}
+                .setStage(pipeline_shader_stage_create_info)
+                .setLayout(gradient_pipeline_layout_);
+
+        auto [result, pipeline] = device_.createComputePipeline(
+            VK_NULL_HANDLE, compute_pipeline_create_info);
+
+        if (result != vk::Result::eSuccess)
+            Logger::abort("Failed to create compute pipeline");
+
+        gradient_pipeline_ = pipeline;
+
+        device_.destroyShaderModule(*compute_shader);
+    }
 } // namespace Rune
+
+#undef VKASSERT
+#undef VKWARN
