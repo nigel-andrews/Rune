@@ -7,6 +7,7 @@
 
 namespace Rune
 {
+    // FIXME: This singleton is probably not required anymore
     class Application : Singleton<Application>
     {
     public:

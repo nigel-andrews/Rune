@@ -18,6 +18,12 @@ FetchContent_Declare(
   GIT_TAG 3.3.9)
 FetchContent_MakeAvailable(glfw)
 
+FetchContent_Declare(
+  glm
+  GIT_REPOSITORY https://github.com/g-truc/glm.git
+  GIT_TAG refs/tags/1.0.1)
+FetchContent_MakeAvailable(glm)
+
 # FIXME: This should be only at backend level
 FetchContent_Declare(
   vma
@@ -34,5 +40,7 @@ target_include_directories(Rune PUBLIC src)
 
 set_target_properties(Rune PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF)
 
-target_link_libraries(Rune PUBLIC compile_options glfw vendor
-                                  VulkanMemoryAllocator)
+target_link_libraries(
+  Rune
+  PUBLIC compile_options glfw vendor VulkanMemoryAllocator
+  PRIVATE glm)
