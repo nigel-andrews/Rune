@@ -19,7 +19,7 @@ namespace Rune
             break;
         }
 
-        gui_.init_context();
+        gui_.init_gui(backend_.get());
         backend_->init(window, config.name, config.width, config.height);
     }
 

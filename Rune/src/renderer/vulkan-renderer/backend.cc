@@ -1,17 +1,18 @@
-#include "glm/ext/vector_float4.hpp"
+// clang-format off
 #define VMA_IMPLEMENTATION
+#include "backend.hh"
+// clang-format on
+
 #include <cmath>
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <glm/vec4.hpp>
 #include <initializer_list>
 #include <optional>
 #include <span>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
-#include "backend.hh"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
@@ -236,14 +237,6 @@ namespace Rune
                 .setPDepthAttachment(depth_attachment)
                 .setPStencilAttachment(stencil_attachment);
         }
-
-        struct ComputePushConstants
-        {
-            glm::vec4 data1;
-            glm::vec4 data2;
-            glm::vec4 data3;
-            glm::vec4 data4;
-        };
     } // namespace
 
     // FIXME: move to different file
@@ -414,6 +407,33 @@ namespace Rune
         command.endRendering();
     }
 
+    void VulkanRenderer::test_imgui()
+    {
+        ImGui::NewFrame();
+
+        if (ImGui::Begin("background"))
+        {
+            ComputeEffect& selected = background_effects_[current_effect_];
+
+            ImGui::Text("Selected effect: %s", selected.name);
+
+            ImGui::SliderInt("Effect Index", &current_effect_, 0,
+                             background_effects_.size() - 1);
+
+            ImGui::InputFloat4("data1", (float*)&selected.data.data1);
+            ImGui::InputFloat4("data2", (float*)&selected.data.data2);
+            ImGui::InputFloat4("data3", (float*)&selected.data.data3);
+            ImGui::InputFloat4("data4", (float*)&selected.data.data4);
+        }
+        else
+        {
+            Logger::log(Logger::WARN, "ImGui::Begin background window failed");
+        }
+        ImGui::End();
+
+        ImGui::Render();
+    }
+
     void VulkanRenderer::draw_frame()
     {
         auto& current_frame = current_frame_get();
@@ -451,19 +471,17 @@ namespace Rune
         // auto clear_range =
         //     image_subresource_range(vk::ImageAspectFlagBits::eColor);
 
-        command.bindPipeline(vk::PipelineBindPoint::eCompute,
-                             gradient_pipeline_);
+        auto& effect = background_effects_[current_effect_];
+
+        command.bindPipeline(vk::PipelineBindPoint::eCompute, effect.pipeline);
 
         command.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                    gradient_pipeline_layout_, 0,
                                    draw_image_descriptors_, nullptr);
 
-        ComputePushConstants pc{
-            { 1.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 1.f, 1.f }, {}, {}
-        };
         command.pushConstants(gradient_pipeline_layout_,
                               vk::ShaderStageFlagBits::eCompute, 0,
-                              sizeof(ComputePushConstants), &pc);
+                              sizeof(ComputePushConstants), &effect.data);
 
         command.dispatch(std::ceil(draw_image_extent_.width / 16.),
                          std::ceil(draw_image_extent_.height / 16.), 1);
@@ -574,7 +592,9 @@ namespace Rune
             device_.destroyDescriptorSetLayout(layout);
 
         device_.destroyPipelineLayout(gradient_pipeline_layout_);
-        device_.destroyPipeline(gradient_pipeline_);
+
+        for (auto& effect : background_effects_)
+            device_.destroyPipeline(effect.pipeline);
 
         device_.destroy();
         instance_.destroy();
@@ -904,16 +924,16 @@ namespace Rune
 
         // FIXME: better path handling for this (maybe a define added in the
         // CMake after compiling the shader)
-        fs::path shader_path =
-            "build/debug/Rune/src/renderer/shaders/compute.spv";
-        auto compute_shader = load_shader(shader_path, device_);
+        fs::path gradient_shader_path =
+            "build/debug/Rune/src/renderer/shaders/gradient.spv";
+        auto gradient_shader = load_shader(gradient_shader_path, device_);
 
-        if (!compute_shader)
+        if (!gradient_shader)
             Logger::abort(std::format("Failed to load compute shader !"));
 
         auto pipeline_shader_stage_create_info =
             vk::PipelineShaderStageCreateInfo{}
-                .setModule(*compute_shader)
+                .setModule(*gradient_shader)
                 .setStage(vk::ShaderStageFlagBits::eCompute)
                 .setPName("main");
 
@@ -922,15 +942,53 @@ namespace Rune
                 .setStage(pipeline_shader_stage_create_info)
                 .setLayout(gradient_pipeline_layout_);
 
-        auto [result, pipeline] = device_.createComputePipeline(
+        ComputeEffect gradient;
+        gradient.layout = gradient_pipeline_layout_;
+        gradient.name = "gradient";
+        gradient.data = {};
+
+        gradient.data.data1 = glm::vec4(1, 0, 0, 1);
+        gradient.data.data2 = glm::vec4(0, 0, 1, 1);
+
+        auto [gradient_result, gradient_pipeline] =
+            device_.createComputePipeline(VK_NULL_HANDLE,
+                                          compute_pipeline_create_info);
+
+        if (gradient_result != vk::Result::eSuccess)
+            Logger::abort("Failed to create gradient pipeline");
+
+        gradient.pipeline = gradient_pipeline;
+
+        device_.destroyShaderModule(*gradient_shader);
+
+        fs::path sky_shader_path =
+            "build/debug/Rune/src/renderer/shaders/sky.spv";
+        auto sky_shader = load_shader(sky_shader_path, device_);
+
+        if (!sky_shader)
+            Logger::abort(std::format("Failed to load compute shader !"));
+
+        compute_pipeline_create_info.stage.setModule(*sky_shader);
+
+        ComputeEffect sky;
+        sky.layout = gradient_pipeline_layout_;
+        sky.name = "sky";
+        sky.data = {};
+
+        sky.data.data1 = glm::vec4(0.1, 0.2, 0.4, 0.97);
+
+        auto [sky_result, sky_pipeline] = device_.createComputePipeline(
             VK_NULL_HANDLE, compute_pipeline_create_info);
 
-        if (result != vk::Result::eSuccess)
-            Logger::abort("Failed to create compute pipeline");
+        if (sky_result != vk::Result::eSuccess)
+            Logger::abort("Failed to create sky pipeline");
 
-        gradient_pipeline_ = pipeline;
+        sky.pipeline = sky_pipeline;
 
-        device_.destroyShaderModule(*compute_shader);
+        device_.destroyShaderModule(*sky_shader);
+
+        background_effects_.push_back(gradient);
+        background_effects_.push_back(sky);
     }
 } // namespace Rune
 

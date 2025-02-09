@@ -5,20 +5,18 @@
 
 namespace Rune
 {
-    void Gui::init_context()
+    void Gui::init_gui(RenderBackend* backend)
     {
         IMGUI_CHECKVERSION();
 
         ImGui::CreateContext();
+        backend_ = backend;
     }
 
     void Gui::draw_frame()
     {
         ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-        ImGui::ShowDemoWindow();
-
-        ImGui::Render();
+        backend_->test_imgui();
     }
 
     void Gui::shutdown()

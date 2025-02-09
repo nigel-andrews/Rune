@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/vec4.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -67,12 +68,32 @@ namespace Rune
     constexpr auto MAX_IN_FLIGHT = 2;
 #endif
 
+    struct ComputePushConstants
+    {
+        glm::vec4 data1;
+        glm::vec4 data2;
+        glm::vec4 data3;
+        glm::vec4 data4;
+    };
+
+    struct ComputeEffect
+    {
+        const char* name;
+
+        vk::Pipeline pipeline;
+        vk::PipelineLayout layout;
+
+        ComputePushConstants data;
+    };
+
     class VulkanRenderer final : public RenderBackend
     {
     public:
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
         void init_imgui();
+
+        void test_imgui() final;
         bool is_imgui_initialized() final;
         void draw_frame() final;
         void cleanup() final;
@@ -117,8 +138,11 @@ namespace Rune
 
         // FIXME: from vkguide
         //
-        vk::Pipeline gradient_pipeline_;
         vk::PipelineLayout gradient_pipeline_layout_;
+
+        std::vector<ComputeEffect> background_effects_;
+        int current_effect_;
+
         VulkanImage draw_image_;
         vk::Extent2D draw_image_extent_;
 

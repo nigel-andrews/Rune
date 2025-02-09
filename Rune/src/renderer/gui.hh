@@ -5,10 +5,11 @@
 
 namespace Rune
 {
+    // FIXME: better handling of imgui
     class Gui
     {
     public:
-        void init_context();
+        void init_gui(RenderBackend* backend);
         void draw_frame();
         void shutdown();
 
