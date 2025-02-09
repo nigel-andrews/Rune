@@ -1,16 +1,17 @@
+#include "glm/ext/vector_float4.hpp"
 #define VMA_IMPLEMENTATION
-#include "backend.hh"
-
 #include <cmath>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <glm/vec4.hpp>
 #include <initializer_list>
 #include <optional>
 #include <span>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
+#include "backend.hh"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
@@ -235,6 +236,14 @@ namespace Rune
                 .setPDepthAttachment(depth_attachment)
                 .setPStencilAttachment(stencil_attachment);
         }
+
+        struct ComputePushConstants
+        {
+            glm::vec4 data1;
+            glm::vec4 data2;
+            glm::vec4 data3;
+            glm::vec4 data4;
+        };
     } // namespace
 
     // FIXME: move to different file
@@ -444,9 +453,18 @@ namespace Rune
 
         command.bindPipeline(vk::PipelineBindPoint::eCompute,
                              gradient_pipeline_);
+
         command.bindDescriptorSets(vk::PipelineBindPoint::eCompute,
                                    gradient_pipeline_layout_, 0,
                                    draw_image_descriptors_, nullptr);
+
+        ComputePushConstants pc{
+            { 1.f, 0.f, 0.f, 1.f }, { 0.f, 0.f, 1.f, 1.f }, {}, {}
+        };
+        command.pushConstants(gradient_pipeline_layout_,
+                              vk::ShaderStageFlagBits::eCompute, 0,
+                              sizeof(ComputePushConstants), &pc);
+
         command.dispatch(std::ceil(draw_image_extent_.width / 16.),
                          std::ceil(draw_image_extent_.height / 16.), 1);
 
@@ -871,9 +889,16 @@ namespace Rune
 
     void VulkanRenderer::init_background_pipelines()
     {
+        auto range = vk::PushConstantRange{}
+                         .setStageFlags(vk::ShaderStageFlagBits::eCompute)
+                         .setSize(sizeof(ComputePushConstants))
+                         .setOffset(0);
+
         auto pipeline_layout_create_info =
-            vk::PipelineLayoutCreateInfo{}.setSetLayouts(
-                draw_image_descriptor_layouts_);
+            vk::PipelineLayoutCreateInfo{}
+                .setSetLayouts(draw_image_descriptor_layouts_)
+                .setPushConstantRanges(range);
+
         gradient_pipeline_layout_ =
             device_.createPipelineLayout(pipeline_layout_create_info);
 
