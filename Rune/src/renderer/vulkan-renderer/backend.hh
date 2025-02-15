@@ -12,49 +12,11 @@
 
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
+#include "structs.hh"
+#include "utils/descriptors.hh"
 
-namespace Rune
+namespace Rune::Vulkan
 {
-    class DescriptorPool
-    {
-    public:
-        // NOTE: This is from the VkGuide still, not sure about the ratio
-        struct SetInfo
-        {
-            vk::DescriptorType type;
-            float ratio;
-        };
-
-        constexpr DescriptorPool()
-        {}
-
-        void device_set(vk::Device device)
-        {
-            device_ = device;
-        }
-
-        void init(u32 max_sets, std::span<SetInfo> infos);
-
-        void reset();
-
-        void destroy();
-
-        vk::DescriptorSet allocate(std::span<vk::DescriptorSetLayout> layouts);
-
-    private:
-        vk::Device device_;
-        vk::DescriptorPool pool_;
-    };
-
-    struct RenderData
-    {
-        vk::Semaphore swapchain_semaphore;
-        vk::Semaphore render_semaphore;
-        vk::Fence render_fence;
-        vk::CommandPool command_pool;
-        vk::CommandBuffer primary_buffer;
-    };
-
     struct VulkanImage
     {
         vk::Image image;
@@ -68,6 +30,7 @@ namespace Rune
     constexpr auto MAX_IN_FLIGHT = 2;
 #endif
 
+    // FIXME: these are probably vkguide specific
     struct ComputePushConstants
     {
         glm::vec4 data1;
@@ -86,7 +49,7 @@ namespace Rune
         ComputePushConstants data;
     };
 
-    class VulkanRenderer final : public RenderBackend
+    class Backend final : public RenderBackend
     {
     public:
         void init(Window* window, std::string_view app_name, i32 width,
@@ -94,7 +57,12 @@ namespace Rune
         void init_imgui();
 
         void test_imgui() final;
-        bool is_imgui_initialized() final;
+
+        bool is_imgui_initialized() final
+        {
+            return imgui_initialized_;
+        }
+
         void draw_frame() final;
         void cleanup() final;
 
@@ -152,4 +120,4 @@ namespace Rune
         bool initialized_ = false;
         bool imgui_initialized_ = false;
     };
-} // namespace Rune
+} // namespace Rune::Vulkan

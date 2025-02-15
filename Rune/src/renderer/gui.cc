@@ -16,7 +16,12 @@ namespace Rune
     void Gui::draw_frame()
     {
         ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // FIXME: Better usage of this
         backend_->test_imgui();
+
+        ImGui::Render();
     }
 
     void Gui::shutdown()

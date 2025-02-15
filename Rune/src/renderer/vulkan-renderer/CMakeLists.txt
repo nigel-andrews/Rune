@@ -1,4 +1,6 @@
-add_library(vulkan-backend STATIC backend.cc)
+add_library(
+  vulkan-backend STATIC backend.cc utils/descriptors.cc utils/image.cc
+                        utils/initializers.cc utils/shaders.cc)
 
 set(BUILD_SHARED_LIBS True)
 

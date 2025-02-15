@@ -1,15 +1,10 @@
 // clang-format off
+#include "renderer/vulkan-renderer/utils/initializers.hh"
 #define VMA_IMPLEMENTATION
 #include "backend.hh"
 // clang-format on
 
 #include <cmath>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <initializer_list>
-#include <optional>
-#include <span>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -18,29 +13,18 @@
 #include "imgui.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <VkBootstrap.h>
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
+#include "bootstrap.hh"
 #include "core/logger.hh"
+#include "utils/defines.hh"
+#include "utils/image.hh"
+#include "utils/shaders.hh"
 
 namespace fs = std::filesystem;
 
-#define VKASSERT(Expr, Message)                                                \
-    do                                                                         \
-    {                                                                          \
-        if (auto result = (Expr); result != vk::Result::eSuccess)              \
-            Logger::abort((Message));                                          \
-    } while (false)
-
-#define VKWARN(Expr, Message)                                                  \
-    do                                                                         \
-    {                                                                          \
-        if (auto result = (Expr); result != vk::Result::eSuccess)              \
-            Logger::log(Logger::WARN, (Message));                              \
-    } while (false)
-
-namespace Rune
+namespace Rune::Vulkan
 {
     namespace
     {
@@ -52,239 +36,17 @@ namespace Rune
 
         constexpr auto TIMEOUT = 1000000000;
 
-        struct
-        {
-            vkb::Instance instance;
-            vkb::InstanceDispatchTable dispatch;
-            // NOTE: This is (kind of) unused now, could be removed if
-            // check_available_queues is changed
-            vkb::Device device;
-        } context;
-
-        struct
-        {
-            u32 graphics;
-            u32 present;
-        } queue_family_indices;
-
-        // NOTE: This should probably be moved in some utility header
-        //
-        // Thanks https://vkguide.dev/docs/new_chapter_1/vulkan_mainloop_code/
-        vk::ImageSubresourceRange
-        image_subresource_range(vk::ImageAspectFlags aspect_mask)
-        {
-            // WARN: Default for now from VkGuide
-            vk::ImageSubresourceRange sub_image{};
-
-            // XXX: check validity of this
-            return sub_image.setAspectMask(aspect_mask)
-                .setLevelCount(VK_REMAINING_MIP_LEVELS)
-                .setLayerCount(VK_REMAINING_ARRAY_LAYERS);
-        }
-
-        void transition_image(vk::CommandBuffer command, VkImage image,
-                              vk::ImageLayout current_layout,
-                              vk::ImageLayout new_layout)
-        {
-            vk::ImageMemoryBarrier2 image_barrier{};
-
-            // WARN: Inefficient for now, still figuring this out
-            image_barrier
-                .setSrcStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-                .setSrcAccessMask(vk::AccessFlagBits2::eMemoryWrite)
-                .setDstStageMask(vk::PipelineStageFlagBits2::eAllCommands)
-                .setDstAccessMask(vk::AccessFlagBits2::eMemoryWrite
-                                  | vk::AccessFlagBits2::eMemoryRead)
-                .setOldLayout(current_layout)
-                .setNewLayout(new_layout)
-                .setSubresourceRange(
-                    image_subresource_range(vk::ImageAspectFlags{
-                        new_layout == vk::ImageLayout::eDepthAttachmentOptimal
-                            ? vk::ImageAspectFlagBits::eDepth
-                            : vk::ImageAspectFlagBits::eColor }))
-                .setImage(image);
-
-            vk::DependencyInfo dep_info{};
-            command.pipelineBarrier2(
-                dep_info.setImageMemoryBarrierCount(1).setImageMemoryBarriers(
-                    image_barrier));
-        }
-
-        // If both extents are equal, maybe use copy instead of blit ?
-        void copy_images(vk::CommandBuffer command, vk::Image src,
-                         vk::Image dst, vk::Extent2D src_extent,
-                         vk::Extent2D dst_extent)
-        {
-            vk::ImageBlit2 blit{ vk::ImageSubresourceLayers{
-                                     vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
-                                 {},
-                                 vk::ImageSubresourceLayers{
-                                     vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
-                                 {} };
-
-            auto [src_x, src_y] = src_extent;
-            blit.srcOffsets[1] = vk::Offset3D(src_x, src_y, 1);
-
-            auto [dst_x, dst_y] = dst_extent;
-            blit.dstOffsets[1] = vk::Offset3D(dst_x, dst_y, 1);
-
-            vk::BlitImageInfo2 blit_info{ src,
-                                          vk::ImageLayout::eTransferSrcOptimal,
-                                          dst,
-                                          vk::ImageLayout::eTransferDstOptimal,
-                                          1,
-                                          &blit,
-                                          vk::Filter::eLinear };
-
-            command.blitImage2(&blit_info);
-        }
-
-        // FIXME: move to utils folder
-        struct DescriptorLayoutBuilder
-        {
-            DescriptorLayoutBuilder(vk::Device device)
-                : device{ device }
-                , bindings{}
-            {}
-
-            vk::DescriptorSetLayout
-            build(vk::ShaderStageFlags shader_stages, void* pNext = nullptr,
-                  vk::DescriptorSetLayoutCreateFlags create_flags = {})
-            {
-                for (auto& binding : bindings)
-                    binding.stageFlags |= shader_stages;
-
-                auto create_info = vk::DescriptorSetLayoutCreateInfo{}
-                                       .setBindings(bindings)
-                                       .setFlags(create_flags)
-                                       .setPNext(pNext);
-
-                vk::DescriptorSetLayout layout{};
-
-                VKASSERT(device.createDescriptorSetLayout(&create_info, nullptr,
-                                                          &layout),
-                         "Failed to create desciptor set layout");
-
-                return layout;
-            }
-
-            void bind(u32 binding, vk::DescriptorType type)
-            {
-                bindings.emplace_back(binding, type, 1);
-            }
-
-            vk::Device device;
-            std::vector<vk::DescriptorSetLayoutBinding> bindings;
-        };
-
-        // FIXME: to utils file
-        std::optional<vk::ShaderModule> load_shader(const fs::path& shader_path,
-                                                    vk::Device device)
-        {
-            std::ifstream shader_file(shader_path,
-                                      std::ios::ate | std::ios::binary);
-
-            if (!shader_file.is_open())
-            {
-                Logger::log(Logger::WARN, "Failed to open file at ",
-                            shader_path);
-                return std::nullopt;
-            }
-
-            u64 code_size = shader_file.tellg();
-
-            std::vector<u32> buffer(code_size / sizeof(u32));
-
-            shader_file.seekg(0);
-            shader_file.read((char*)buffer.data(), code_size);
-            shader_file.close();
-
-            auto module_info =
-                vk::ShaderModuleCreateInfo{}.setCode(buffer).setCodeSize(
-                    code_size);
-
-            return device.createShaderModule(module_info);
-        }
-
-        vk::RenderingAttachmentInfo attachment_info(
-            vk::ImageView image_view, vk::ImageLayout layout,
-            std::optional<vk::ClearValue> clear_value = std::nullopt)
-        {
-            auto rendering_attachment_info =
-                vk::RenderingAttachmentInfo{}
-                    .setImageView(image_view)
-                    .setImageLayout(layout)
-                    .setLoadOp(clear_value ? vk::AttachmentLoadOp::eClear
-                                           : vk::AttachmentLoadOp::eLoad)
-                    .setStoreOp(vk::AttachmentStoreOp::eStore);
-
-            if (clear_value)
-                rendering_attachment_info.setClearValue(*clear_value);
-
-            return rendering_attachment_info;
-        }
-
-        vk::RenderingInfo rendering_info(
-            vk::Extent2D render_extent,
-            const vk::RenderingAttachmentInfo& color_attachment,
-            const vk::RenderingAttachmentInfo* depth_attachment = nullptr,
-            const vk::RenderingAttachmentInfo* stencil_attachment = nullptr)
-        {
-            return vk::RenderingInfo{}
-                .setRenderArea(vk::Rect2D{ vk::Offset2D{}, render_extent })
-                .setLayerCount(1)
-                .setColorAttachments(color_attachment)
-                .setPDepthAttachment(depth_attachment)
-                .setPStencilAttachment(stencil_attachment);
-        }
+        BootstrapContext context;
+        QueueFamilies queue_family_indices;
     } // namespace
 
-    // FIXME: move to different file
-    void DescriptorPool::init(u32 max_sets, std::span<SetInfo> infos)
-    {
-        std::vector<vk::DescriptorPoolSize> pool_sizes{};
-
-        for (auto info : infos)
-            pool_sizes.emplace_back(info.type, info.ratio * max_sets);
-
-        auto create_info =
-            vk::DescriptorPoolCreateInfo{}.setMaxSets(max_sets).setPoolSizes(
-                pool_sizes);
-        VKWARN(device_.createDescriptorPool(&create_info, nullptr, &pool_),
-               "Failed to create DescriptorPool");
-    }
-
-    void DescriptorPool::reset()
-    {
-        device_.resetDescriptorPool(pool_);
-    }
-
-    void DescriptorPool::destroy()
-    {
-        device_.destroyDescriptorPool(pool_);
-    }
-
-    vk::DescriptorSet
-    DescriptorPool::allocate(std::span<vk::DescriptorSetLayout> layouts)
-    {
-        auto alloc_info = vk::DescriptorSetAllocateInfo{}
-                              .setSetLayouts(layouts)
-                              .setDescriptorPool(pool_);
-
-        vk::DescriptorSet set{};
-        VKWARN(device_.allocateDescriptorSets(&alloc_info, &set),
-               "Failed to allocate descript sets");
-
-        return set;
-    }
-
-    const RenderData& VulkanRenderer::current_frame_get()
+    const RenderData& Backend::current_frame_get()
     {
         return frames_[current_frame_ % MAX_IN_FLIGHT];
     }
 
-    void VulkanRenderer::init(Window* window, std::string_view app_name,
-                              i32 width, i32 height)
+    void Backend::init(Window* window, std::string_view app_name, i32 width,
+                       i32 height)
     {
         if (initialized_)
         {
@@ -315,49 +77,11 @@ namespace Rune
         init_imgui();
     }
 
-    void VulkanRenderer::init_imgui()
+    void Backend::init_imgui()
     {
-        std::array pool_sizes = {
-            vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler,
-                                    1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer,
-                                    1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer,
-                                    1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic,
-                                    1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
-            vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 }
-        };
-
-        vk::DescriptorPoolCreateInfo pool_info{
-            vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet
-        };
-
-        for (VkDescriptorPoolSize& pool_size : pool_sizes)
-            pool_info.maxSets += pool_size.descriptorCount;
-
-        pool_info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
-        pool_info.pPoolSizes = pool_sizes.data();
-
-        // Using VKWARN here causes validation error because of the do
-        // while(false)
-        if (device_.createDescriptorPool(&pool_info, nullptr,
-                                         &imgui_descriptor_pool_)
-            != vk::Result::eSuccess)
-        {
-            Logger::log(
-                Logger::WARN,
-                "Failed to initialize ImGui descriptor pools, skipping");
-            return;
-        }
-
         ImGui_ImplGlfw_InitForVulkan(window_->get(), true);
+
+        imgui_descriptor_pool_ = init_imgui_descriptors(device_);
 
         ImGui_ImplVulkan_InitInfo info{};
         info.Instance = instance_;
@@ -386,13 +110,10 @@ namespace Rune
         Logger::log(Logger::INFO, "ImGui initialized for Vulkan backend");
     }
 
-    bool VulkanRenderer::is_imgui_initialized()
-    {
-        return imgui_initialized_;
-    }
-
-    void VulkanRenderer::imgui_backend_frame(vk::CommandBuffer command,
-                                             vk::ImageView view)
+    // FIXME: Try to handle this drawing outside of the main draw_frame
+    // (threads ? different queues ?)
+    void Backend::imgui_backend_frame(vk::CommandBuffer command,
+                                      vk::ImageView view)
     {
         ImGui_ImplVulkan_NewFrame();
 
@@ -407,10 +128,8 @@ namespace Rune
         command.endRendering();
     }
 
-    void VulkanRenderer::test_imgui()
+    void Backend::test_imgui()
     {
-        ImGui::NewFrame();
-
         if (ImGui::Begin("background"))
         {
             ComputeEffect& selected = background_effects_[current_effect_];
@@ -430,11 +149,9 @@ namespace Rune
             Logger::log(Logger::WARN, "ImGui::Begin background window failed");
         }
         ImGui::End();
-
-        ImGui::Render();
     }
 
-    void VulkanRenderer::draw_frame()
+    void Backend::draw_frame()
     {
         auto& current_frame = current_frame_get();
         while (
@@ -548,7 +265,7 @@ namespace Rune
     // FIXME: Handle sigint for graceful shutdown
     // FIXME: Use a deletion queue
     //
-    void VulkanRenderer::cleanup()
+    void Backend::cleanup()
     {
         if (!initialized_)
         {
@@ -600,7 +317,7 @@ namespace Rune
         instance_.destroy();
     }
 
-    void VulkanRenderer::init_instance(std::string_view app_name)
+    void Backend::init_instance(std::string_view app_name)
     {
         u32 count;
         auto required_extensions = glfwGetRequiredInstanceExtensions(&count);
@@ -643,7 +360,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Created Vulkan instance");
     }
 
-    void VulkanRenderer::create_surface()
+    void Backend::create_surface()
     {
         VkSurfaceKHR surface = VK_NULL_HANDLE;
         VKASSERT(static_cast<vk::Result>(glfwCreateWindowSurface(
@@ -653,7 +370,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Created Vulkan surface");
     }
 
-    void VulkanRenderer::select_devices()
+    void Backend::select_devices()
     {
         VkPhysicalDeviceVulkan13Features features13{};
         // TODO: investigate more features
@@ -695,7 +412,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Device created");
     }
 
-    void VulkanRenderer::check_available_queues() const
+    void Backend::check_available_queues() const
     {
 #if defined(DEBUG) || !defined(NDEBUG)
         auto graphics_queue =
@@ -715,7 +432,7 @@ namespace Rune
 #endif
     }
 
-    void VulkanRenderer::get_queue_indices_and_queue()
+    void Backend::get_queue_indices_and_queue()
     {
         auto properties = gpu_.getQueueFamilyProperties2();
         u32 i = 0;
@@ -736,7 +453,7 @@ namespace Rune
             vk::DeviceQueueInfo2{ {}, queue_family_indices.graphics });
     }
 
-    void VulkanRenderer::init_allocator()
+    void Backend::init_allocator()
     {
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.physicalDevice = gpu_;
@@ -751,7 +468,7 @@ namespace Rune
             Logger::log(Logger::INFO, "Created Vulkan memory allocator");
     }
 
-    void VulkanRenderer::init_swapchain(i32 width, i32 height)
+    void Backend::init_swapchain(i32 width, i32 height)
     {
         vkb::SwapchainBuilder builder{ gpu_, device_, surface_ };
 
@@ -829,7 +546,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Created swapchain and draw image");
     }
 
-    void VulkanRenderer::create_command_pools_and_buffers()
+    void Backend::create_command_pools_and_buffers()
     {
         vk::CommandPoolCreateInfo create_info{
             vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
@@ -850,7 +567,7 @@ namespace Rune
         Logger::log(Logger::INFO, "Created command pools and buffers");
     }
 
-    void VulkanRenderer::init_sync_structs()
+    void Backend::init_sync_structs()
     {
         vk::FenceCreateInfo fence_create_info{
             vk::FenceCreateFlagBits::eSignaled
@@ -868,7 +585,7 @@ namespace Rune
         }
     }
 
-    void VulkanRenderer::init_descriptors()
+    void Backend::init_descriptors()
     {
         std::vector<DescriptorPool::SetInfo> set_infos{
             { vk::DescriptorType::eStorageImage, 1 },
@@ -902,12 +619,12 @@ namespace Rune
         device_.updateDescriptorSets(1, &write_descriptor_set, 0, nullptr);
     }
 
-    void VulkanRenderer::init_pipelines()
+    void Backend::init_pipelines()
     {
         init_background_pipelines();
     }
 
-    void VulkanRenderer::init_background_pipelines()
+    void Backend::init_background_pipelines()
     {
         auto range = vk::PushConstantRange{}
                          .setStageFlags(vk::ShaderStageFlagBits::eCompute)
@@ -990,7 +707,4 @@ namespace Rune
         background_effects_.push_back(gradient);
         background_effects_.push_back(sky);
     }
-} // namespace Rune
-
-#undef VKASSERT
-#undef VKWARN
+} // namespace Rune::Vulkan

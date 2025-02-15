@@ -14,8 +14,9 @@ namespace Rune
     {
         switch (type)
         {
+        // FIXME: abstract this behind a factory
         case RenderBackendType::VULKAN:
-            backend_ = std::make_unique<VulkanRenderer>();
+            backend_ = std::make_unique<Vulkan::Backend>();
             break;
         }
 
