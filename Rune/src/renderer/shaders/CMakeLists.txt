@@ -13,7 +13,7 @@ function(compile_glsl shader_name ext)
   endif()
 
   set(shader_file "${shader_name}.${ext}")
-  set(shader_output "${shader_name}.spv")
+  set(shader_output "${shader_name}.${ext}.spv")
 
   add_custom_command(
     OUTPUT ${shader_output}
@@ -22,7 +22,7 @@ function(compile_glsl shader_name ext)
     MAIN_DEPENDENCY "${shader_file}")
 
   add_custom_target(
-    "${shader_name}_spv_target" ALL
+    "${shader_name}_${ext}_spv_target" ALL
     DEPENDS ${shader_output}
     COMMENT "")
 endfunction()

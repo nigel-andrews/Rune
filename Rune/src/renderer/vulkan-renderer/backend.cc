@@ -128,6 +128,8 @@ namespace Rune::Vulkan
         command.endRendering();
     }
 
+    // FIXME: this should be handled indepedently from the render backend (in
+    // Gui)
     void Backend::test_imgui()
     {
         if (ImGui::Begin("background"))
@@ -642,7 +644,7 @@ namespace Rune::Vulkan
         // FIXME: better path handling for this (maybe a define added in the
         // CMake after compiling the shader)
         fs::path gradient_shader_path =
-            "build/debug/Rune/src/renderer/shaders/gradient.spv";
+            "build/debug/Rune/src/renderer/shaders/gradient.comp.spv";
         auto gradient_shader = load_shader(gradient_shader_path, device_);
 
         if (!gradient_shader)
