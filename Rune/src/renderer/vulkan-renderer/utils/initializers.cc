@@ -1,6 +1,6 @@
 #include "initializers.hh"
 
-#include "core/logger.hh"
+#include "core/logger/logger.hh"
 
 namespace Rune::Vulkan
 {

@@ -17,7 +17,7 @@
 #include <vulkan/vulkan_handles.hpp>
 
 #include "bootstrap.hh"
-#include "core/logger.hh"
+#include "core/logger/logger.hh"
 #include "utils/defines.hh"
 #include "utils/image.hh"
 #include "utils/shaders.hh"

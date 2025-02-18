@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-#include "core/logger.hh"
+#include "core/logger/logger.hh"
 #include "utils/types.hh"
 
 namespace Rune::Vulkan

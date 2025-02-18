@@ -3,7 +3,7 @@
 #include <print>
 
 #include "GLFW/glfw3.h"
-#include "core/logger.hh"
+#include "core/logger/logger.hh"
 
 namespace Rune
 {

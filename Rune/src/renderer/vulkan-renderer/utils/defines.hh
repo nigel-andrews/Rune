@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "core/logger.hh"
+#include "core/logger/logger.hh"
 
 #define VKASSERT(Expr, Message)                                                \
     do                                                                         \
