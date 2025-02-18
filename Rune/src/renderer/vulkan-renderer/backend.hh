@@ -1,31 +1,17 @@
 #pragma once
 
 #include <glm/vec4.hpp>
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#include <vk_mem_alloc.h>
-#pragma GCC diagnostic pop
 #include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_handles.hpp>
 
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
 #include "structs.hh"
 #include "utils/descriptors.hh"
+#include "utils/image.hh"
+#include "utils/vma.hh"
 
 namespace Rune::Vulkan
 {
-    struct VulkanImage
-    {
-        vk::Image image;
-        vk::ImageView image_view;
-        vk::Extent3D image_extent;
-        vk::Format image_format;
-        VmaAllocation allocation;
-    };
-
 #ifndef MAX_IN_FLIGHT
     constexpr auto MAX_IN_FLIGHT = 2;
 #endif
@@ -99,8 +85,11 @@ namespace Rune::Vulkan
         vk::SwapchainKHR swapchain_;
         VkFormat swapchain_image_format_;
         vk::Extent2D swapchain_extent_;
+
+        // These are VkImage since Vkb returns it as such
         std::vector<VkImage> swapchain_images_;
         std::vector<VkImageView> swapchain_images_view_;
+
         vk::SurfaceKHR surface_;
         vk::Queue queue_;
         vk::DescriptorPool imgui_descriptor_pool_;
@@ -120,7 +109,7 @@ namespace Rune::Vulkan
         std::vector<ComputeEffect> background_effects_;
         int current_effect_;
 
-        VulkanImage draw_image_;
+        Image draw_image_;
         vk::Extent2D draw_image_extent_;
 
         vk::DebugUtilsMessengerEXT debug_messenger_;

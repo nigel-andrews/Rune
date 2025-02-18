@@ -2,8 +2,19 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "vma.hh"
+
 namespace Rune::Vulkan
 {
+    struct Image
+    {
+        vk::Image image;
+        vk::ImageView image_view;
+        vk::Extent3D image_extent;
+        vk::Format image_format;
+        VmaAllocation allocation;
+    };
+
     vk::ImageSubresourceRange
     image_subresource_range(vk::ImageAspectFlags aspect_mask);
 
