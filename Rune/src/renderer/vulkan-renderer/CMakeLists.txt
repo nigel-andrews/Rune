@@ -37,8 +37,14 @@ if(Vulkan_FOUND)
   add_subdirectory(utils)
 
   target_link_libraries(
-    vulkan-backend PUBLIC compile_options glfw vendor vulkan
-                          vk-bootstrap::vk-bootstrap VulkanMemoryAllocator)
+    vulkan-backend
+    PUBLIC compile_options
+           core
+           glfw
+           vendor
+           vulkan
+           vk-bootstrap::vk-bootstrap
+           VulkanMemoryAllocator)
 
   target_link_libraries(Rune PRIVATE vulkan-backend)
 endif()
