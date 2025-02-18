@@ -2,8 +2,6 @@
 
 namespace Rune::Vulkan
 {
-    // NOTE: This should probably be moved in some utility header
-    //
     // Thanks https://vkguide.dev/docs/new_chapter_1/vulkan_mainloop_code/
     vk::ImageSubresourceRange
     image_subresource_range(vk::ImageAspectFlags aspect_mask)
