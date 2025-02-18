@@ -153,43 +153,8 @@ namespace Rune::Vulkan
         ImGui::End();
     }
 
-    void Backend::draw_frame()
+    void Backend::draw_background(vk::CommandBuffer command)
     {
-        auto& current_frame = current_frame_get();
-        while (
-            device_.waitForFences(current_frame.render_fence, VK_TRUE, TIMEOUT)
-            == vk::Result::eTimeout)
-            continue;
-
-        device_.resetFences(current_frame.render_fence);
-        auto swapchain_image_index =
-            device_
-                .acquireNextImageKHR(swapchain_, TIMEOUT,
-                                     current_frame.swapchain_semaphore)
-                .value;
-
-        vk::CommandBuffer command = current_frame.primary_buffer;
-        command.reset();
-
-        // FIXME: Right now, simply following VkGuide, integrate customisable
-        // draws later
-
-        // NOTE: One time submit -> each frame the buffer is submitted once then
-        // reset so might speedup
-        command.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlags(
-            VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)));
-
-        transition_image(command, draw_image_.image,
-                         vk::ImageLayout::eUndefined,
-                         vk::ImageLayout::eGeneral);
-
-        // vk::ClearColorValue clear_value;
-        // float flash = std::abs(std::sin(current_frame_ / 120.f));
-        // clear_value.setFloat32({ 0.0f, 0.0f, flash, 1.0f });
-        //
-        // auto clear_range =
-        //     image_subresource_range(vk::ImageAspectFlagBits::eColor);
-
         auto& effect = background_effects_[current_effect_];
 
         command.bindPipeline(vk::PipelineBindPoint::eCompute, effect.pipeline);
@@ -204,8 +169,84 @@ namespace Rune::Vulkan
 
         command.dispatch(std::ceil(draw_image_extent_.width / 16.),
                          std::ceil(draw_image_extent_.height / 16.), 1);
+    }
+
+    void Backend::draw_geometry(vk::CommandBuffer command)
+    {
+        auto render_attach_info = attachment_info(
+            draw_image_.image_view, vk::ImageLayout::eColorAttachmentOptimal);
+
+        auto render_info =
+            rendering_info(draw_image_extent_, render_attach_info);
+
+        command.beginRendering(render_info);
+
+        command.bindPipeline(vk::PipelineBindPoint::eGraphics,
+                             triangle_pipeline_);
+
+        auto viewport = vk::Viewport{}
+                            .setX(0.f)
+                            .setY(0.f)
+                            .setWidth(draw_image_extent_.width)
+                            .setHeight(draw_image_extent_.height)
+                            .setMinDepth(0.f)
+                            .setMaxDepth(1.f);
+
+        command.setViewport(0, 1, &viewport);
+
+        auto scissor = vk::Rect2D{}.setExtent(draw_image_extent_).setOffset({});
+
+        command.setScissor(0, scissor);
+
+        command.draw(3, 1, 0, 0);
+
+        command.endRendering();
+    }
+
+    void Backend::draw_frame()
+    {
+        auto& current_frame = current_frame_get();
+        while (
+            device_.waitForFences(current_frame.render_fence, VK_TRUE, TIMEOUT)
+            == vk::Result::eTimeout)
+            continue;
+
+        auto [result, swapchain_image_index] = device_.acquireNextImageKHR(
+            swapchain_, TIMEOUT, current_frame.swapchain_semaphore);
+
+        if (result == vk::Result::eErrorOutOfDateKHR)
+        {
+            Logger::error("Image acquisition failed");
+            return;
+        }
+
+        device_.resetFences(current_frame.render_fence);
+
+        // XXX: try a ref
+        vk::CommandBuffer command = current_frame.primary_buffer;
+        command.reset();
+
+        // FIXME: Right now, simply following VkGuide, integrate customisable
+        // draws later
+
+        // NOTE: One time submit -> each frame the buffer is submitted once then
+        // reset so might speedup
+        command.begin(vk::CommandBufferBeginInfo{}.setFlags(
+            vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+        transition_image(command, draw_image_.image,
+                         vk::ImageLayout::eUndefined,
+                         vk::ImageLayout::eGeneral);
+
+        draw_background(command);
 
         transition_image(command, draw_image_.image, vk::ImageLayout::eGeneral,
+                         vk::ImageLayout::eColorAttachmentOptimal);
+
+        draw_geometry(command);
+
+        transition_image(command, draw_image_.image,
+                         vk::ImageLayout::eColorAttachmentOptimal,
                          vk::ImageLayout::eTransferSrcOptimal);
 
         auto swapchain_image = swapchain_images_[swapchain_image_index];
@@ -254,13 +295,13 @@ namespace Rune::Vulkan
             .setCommandBufferInfoCount(1)
             .setCommandBufferInfos(command_info);
 
-        VKWARN(queue_.submit2(1, &submit_info, current_frame.render_fence),
-               "command submission failed");
+        VKERROR(queue_.submit2(1, &submit_info, current_frame.render_fence),
+                "command submission failed");
 
-        VKWARN(queue_.presentKHR(
-                   vk::PresentInfoKHR{ 1, &current_frame.render_semaphore, 1,
-                                       &swapchain_, &swapchain_image_index }),
-               "queue presentation failed");
+        VKERROR(queue_.presentKHR(
+                    vk::PresentInfoKHR{ 1, &current_frame.render_semaphore, 1,
+                                        &swapchain_, &swapchain_image_index }),
+                "queue presentation failed");
         ++current_frame_;
     }
 
@@ -311,9 +352,12 @@ namespace Rune::Vulkan
             device_.destroyDescriptorSetLayout(layout);
 
         device_.destroyPipelineLayout(gradient_pipeline_layout_);
+        device_.destroyPipelineLayout(triangle_layout_);
 
         for (auto& effect : background_effects_)
             device_.destroyPipeline(effect.pipeline);
+
+        device_.destroyPipeline(triangle_pipeline_);
 
         device_.destroy();
         instance_.destroy();
@@ -624,6 +668,53 @@ namespace Rune::Vulkan
     void Backend::init_pipelines()
     {
         init_background_pipelines();
+        init_triangle_pipeline();
+    }
+
+    void Backend::init_triangle_pipeline()
+    {
+        auto triangle_frag = load_shader(
+            "build/debug/Rune/src/renderer/shaders/triangle.frag.spv", device_);
+
+        if (!triangle_frag)
+            Logger::abort("failed to init triangle frag");
+
+        auto triangle_vert = load_shader(
+            "build/debug/Rune/src/renderer/shaders/triangle.vert.spv", device_);
+
+        if (!triangle_vert)
+            Logger::abort("failed to init triangle vert");
+
+        auto pipeline_layout = vk::PipelineLayoutCreateInfo{};
+
+        triangle_layout_ = device_.createPipelineLayout(pipeline_layout);
+
+        auto builder =
+            PipelineBuilder{ device_, triangle_layout_ }
+                .set_shader(vk::ShaderStageFlagBits::eVertex, *triangle_vert)
+                .set_shader(vk::ShaderStageFlagBits::eFragment, *triangle_frag)
+                .set_input_topology(vk::PrimitiveTopology::eTriangleList)
+                .set_polygon_mode(vk::PolygonMode::eFill)
+                .set_culling(vk::CullModeFlagBits::eNone,
+                             vk::FrontFace::eClockwise)
+                .disable_multisampling()
+                .disable_depth_test()
+                .disable_blending()
+                .set_color_format(draw_image_.image_format)
+                .set_depth_format(vk::Format::eUndefined);
+
+        auto result =
+            builder.build().or_else([] -> std::optional<vk::Pipeline> {
+                Logger::error("Failed to create pipeline");
+                return std::nullopt;
+            });
+
+        triangle_pipeline_ = result.value_or(VK_NULL_HANDLE);
+
+        device_.destroyShaderModule(*triangle_vert);
+        device_.destroyShaderModule(*triangle_frag);
+
+        Logger::log(Logger::INFO, "Initialized triangle pipeline");
     }
 
     void Backend::init_background_pipelines()

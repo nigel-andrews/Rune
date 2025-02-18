@@ -11,6 +11,13 @@
             Logger::abort((Message));                                          \
     } while (false)
 
+#define VKERROR(Expr, Message)                                                 \
+    do                                                                         \
+    {                                                                          \
+        if (auto result = (Expr); result != vk::Result::eSuccess)              \
+            Logger::error((Message));                                          \
+    } while (false)
+
 #define VKWARN(Expr, Message)                                                  \
     do                                                                         \
     {                                                                          \

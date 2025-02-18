@@ -80,9 +80,15 @@ namespace Rune::Vulkan
         void init_sync_structs();
         void init_descriptors();
         void init_pipelines();
+
+        // FIXME: from vkguide
         void init_background_pipelines();
+        void init_triangle_pipeline();
 
         void imgui_backend_frame(vk::CommandBuffer command, vk::ImageView view);
+
+        void draw_background(vk::CommandBuffer command);
+        void draw_geometry(vk::CommandBuffer command);
 
     private:
         Window* window_;
@@ -107,6 +113,9 @@ namespace Rune::Vulkan
         // FIXME: from vkguide
         //
         vk::PipelineLayout gradient_pipeline_layout_;
+
+        vk::PipelineLayout triangle_layout_;
+        vk::Pipeline triangle_pipeline_;
 
         std::vector<ComputeEffect> background_effects_;
         int current_effect_;
