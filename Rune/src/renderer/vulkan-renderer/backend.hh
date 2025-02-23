@@ -3,6 +3,7 @@
 #include <glm/vec4.hpp>
 #include <vulkan/vulkan.hpp>
 
+#include "core/memory/deletion_stack.hh"
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
 #include "structs.hh"
@@ -16,7 +17,7 @@ namespace Rune::Vulkan
     constexpr auto MAX_IN_FLIGHT = 2;
 #endif
 
-    // FIXME: these are probably vkguide specific
+    // FIXME: these are entirely vkguide specific and to be removed
     struct ComputePushConstants
     {
         glm::vec4 data1;
@@ -40,6 +41,7 @@ namespace Rune::Vulkan
     public:
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
+
         void init_imgui();
 
         void test_imgui() final;
@@ -67,6 +69,8 @@ namespace Rune::Vulkan
         void init_descriptors();
         void init_pipelines();
 
+        void shutdown_imgui();
+
         // FIXME: from vkguide
         void init_background_pipelines();
         void init_triangle_pipeline();
@@ -78,6 +82,7 @@ namespace Rune::Vulkan
 
     private:
         Window* window_;
+        DeletionStack deletion_stack_;
 
         vk::Instance instance_;
         vk::PhysicalDevice gpu_;
@@ -95,6 +100,7 @@ namespace Rune::Vulkan
         vk::DescriptorPool imgui_descriptor_pool_;
         VmaAllocator allocator_ = VK_NULL_HANDLE;
         DescriptorPool pool_;
+
         // maybe a map to be able to distinguish layouts
         std::vector<vk::DescriptorSetLayout> draw_image_descriptor_layouts_;
         vk::DescriptorSet draw_image_descriptors_;

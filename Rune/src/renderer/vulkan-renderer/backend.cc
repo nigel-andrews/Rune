@@ -305,8 +305,16 @@ namespace Rune::Vulkan
         ++current_frame_;
     }
 
+    void Backend::shutdown_imgui()
+    {
+        if (imgui_initialized_)
+        {
+            ImGui_ImplVulkan_Shutdown();
+            device_.destroyDescriptorPool(imgui_descriptor_pool_);
+        }
+    }
+
     // FIXME: Handle sigint for graceful shutdown
-    // FIXME: Use a deletion queue
     //
     void Backend::cleanup()
     {
@@ -319,45 +327,22 @@ namespace Rune::Vulkan
 
         Logger::log(Logger::INFO, "Cleaning up VulkanRenderer");
 
-        vkDeviceWaitIdle(device_);
+        device_.waitIdle();
+
+        deletion_stack_.clear();
+        swapchain_images_view_.clear();
 
         device_.destroySwapchainKHR(swapchain_);
 
-        for (auto& image_view : swapchain_images_view_)
-            device_.destroyImageView(image_view);
-
-        swapchain_images_view_.clear();
-        device_.destroyImageView(draw_image_.image_view);
-        vmaDestroyImage(allocator_, draw_image_.image, draw_image_.allocation);
-
-        vkDestroySurfaceKHR(instance_, surface_, nullptr);
+        instance_.destroySurfaceKHR(surface_);
 
         context.dispatch.destroyDebugUtilsMessengerEXT(debug_messenger_,
                                                        nullptr);
         vmaDestroyAllocator(allocator_);
 
-        for (auto& frame : frames_)
-        {
-            device_.destroyCommandPool(frame.command_pool);
-            device_.destroyFence(frame.render_fence);
-            device_.destroySemaphore(frame.render_semaphore);
-            device_.destroySemaphore(frame.swapchain_semaphore);
-        }
+        shutdown_imgui();
 
-        ImGui_ImplVulkan_Shutdown();
-        device_.destroyDescriptorPool(imgui_descriptor_pool_);
         pool_.destroy();
-
-        for (auto layout : draw_image_descriptor_layouts_)
-            device_.destroyDescriptorSetLayout(layout);
-
-        device_.destroyPipelineLayout(gradient_pipeline_layout_);
-        device_.destroyPipelineLayout(triangle_layout_);
-
-        for (auto& effect : background_effects_)
-            device_.destroyPipeline(effect.pipeline);
-
-        device_.destroyPipeline(triangle_pipeline_);
 
         device_.destroy();
         instance_.destroy();
@@ -540,6 +525,11 @@ namespace Rune::Vulkan
         swapchain_images_ = result->get_images().value();
         swapchain_images_view_ = result->get_image_views().value();
 
+        deletion_stack_.push([this] {
+            for (auto& image_view : swapchain_images_view_)
+                device_.destroyImageView(image_view);
+        });
+
         draw_image_.image_format = vk::Format::eR16G16B16A16Sfloat;
         draw_image_.image_extent =
             vk::Extent3D(window_->width_get(), window_->height_get(), 1);
@@ -563,6 +553,7 @@ namespace Rune::Vulkan
                 .setUsage(flags);
 
         VmaAllocationCreateInfo image_alloc_info{};
+        // NOTE: this should be AUTO
         image_alloc_info.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         image_alloc_info.requiredFlags = static_cast<VkMemoryPropertyFlags>(
             vk::MemoryPropertyFlagBits::eDeviceLocal);
@@ -574,6 +565,11 @@ namespace Rune::Vulkan
             Logger::abort("Failed to create draw image");
 
         draw_image_.image = image;
+
+        deletion_stack_.push([this] {
+            vmaDestroyImage(allocator_, draw_image_.image,
+                            draw_image_.allocation);
+        });
 
         vk::ImageViewCreateInfo view_info{};
         view_info.setImage(draw_image_.image)
@@ -588,6 +584,9 @@ namespace Rune::Vulkan
         VKASSERT(device_.createImageView(&view_info, nullptr,
                                          &draw_image_.image_view),
                  "Failed to create image view");
+
+        deletion_stack_.push(
+            [this] { device_.destroyImageView(draw_image_.image_view); });
 
         Logger::log(Logger::INFO, "Created swapchain and draw image");
     }
@@ -628,6 +627,14 @@ namespace Rune::Vulkan
                 device_.createSemaphore(semaphore_create_info);
             frame.render_semaphore =
                 device_.createSemaphore(semaphore_create_info);
+
+            // Individual functors or one with a loop ?
+            deletion_stack_.push([this, &frame] {
+                device_.destroyCommandPool(frame.command_pool);
+                device_.destroyFence(frame.render_fence);
+                device_.destroySemaphore(frame.render_semaphore);
+                device_.destroySemaphore(frame.swapchain_semaphore);
+            });
         }
     }
 
@@ -663,6 +670,11 @@ namespace Rune::Vulkan
                 .setImageInfo(image_info);
 
         device_.updateDescriptorSets(1, &write_descriptor_set, 0, nullptr);
+
+        deletion_stack_.push([this] {
+            for (auto layout : draw_image_descriptor_layouts_)
+                device_.destroyDescriptorSetLayout(layout);
+        });
     }
 
     void Backend::init_pipelines()
@@ -713,6 +725,11 @@ namespace Rune::Vulkan
 
         device_.destroyShaderModule(*triangle_vert);
         device_.destroyShaderModule(*triangle_frag);
+
+        deletion_stack_.push([this] {
+            device_.destroyPipelineLayout(triangle_layout_);
+            device_.destroyPipeline(triangle_pipeline_);
+        });
 
         Logger::log(Logger::INFO, "Initialized triangle pipeline");
     }
@@ -799,5 +816,14 @@ namespace Rune::Vulkan
 
         background_effects_.push_back(gradient);
         background_effects_.push_back(sky);
+
+        deletion_stack_.push([this] {
+            device_.destroyPipelineLayout(gradient_pipeline_layout_);
+        });
+
+        deletion_stack_.push([this] {
+            for (auto& effect : background_effects_)
+                device_.destroyPipeline(effect.pipeline);
+        });
     }
 } // namespace Rune::Vulkan
