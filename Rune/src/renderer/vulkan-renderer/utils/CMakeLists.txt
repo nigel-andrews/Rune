@@ -1,1 +1,1 @@
-target_sources(vulkan-backend PRIVATE)
+target_sources(vulkan-backend PRIVATE vma.cc)

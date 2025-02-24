@@ -1,8 +1,4 @@
-// clang-format off
-#include "renderer/vulkan-renderer/utils/initializers.hh"
-#define VMA_IMPLEMENTATION
 #include "backend.hh"
-// clang-format on
 
 #include <cmath>
 #include <vulkan/vulkan_enums.hpp>
@@ -11,6 +7,7 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
+#include "renderer/vulkan-renderer/utils/initializers.hh"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
