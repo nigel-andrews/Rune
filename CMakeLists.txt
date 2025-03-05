@@ -28,5 +28,6 @@ target_compile_definitions(compile_options INTERFACE $<$<CONFIG:Release>:NDEBUG>
 
 add_subdirectory(vendor)
 
+# FIXME: turn static libs to object libs
 add_subdirectory(Rune)
 add_subdirectory(demo)

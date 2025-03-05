@@ -30,7 +30,8 @@ namespace Rune::Vulkan
 
         void destroy();
 
-        vk::DescriptorSet allocate(std::span<vk::DescriptorSetLayout> layouts);
+        [[nodiscard]] vk::DescriptorSet
+        allocate(std::span<vk::DescriptorSetLayout> layouts);
 
     private:
         vk::Device device_;
@@ -44,7 +45,7 @@ namespace Rune::Vulkan
             , bindings{}
         {}
 
-        vk::DescriptorSetLayout
+        [[nodiscard]] vk::DescriptorSetLayout
         build(vk::ShaderStageFlags shader_stages, void* pNext = nullptr,
               vk::DescriptorSetLayoutCreateFlags create_flags = {});
 

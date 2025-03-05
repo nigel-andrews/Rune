@@ -35,7 +35,7 @@ namespace Rune::Vulkan
         PipelineBuilder& set_color_format(vk::Format format);
         PipelineBuilder& set_depth_format(vk::Format format);
 
-        std::optional<vk::Pipeline> build();
+        [[nodiscard]] std::optional<vk::Pipeline> build();
 
         void clear();
         void clear_stages()
