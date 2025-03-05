@@ -24,6 +24,11 @@ namespace Rune
         backend_->init(window, config.name, config.width, config.height);
     }
 
+    RenderBackendType Renderer::type_get() const
+    {
+        return backend_->type();
+    }
+
     void Renderer::draw_frame()
     {
         if (backend_->is_imgui_initialized())

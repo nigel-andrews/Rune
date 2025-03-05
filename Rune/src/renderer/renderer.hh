@@ -26,7 +26,6 @@ namespace Rune
         RenderBackendType type_get() const;
 
     private:
-        RenderBackendType type_;
         std::unique_ptr<RenderBackend> backend_;
         Gui gui_;
     };

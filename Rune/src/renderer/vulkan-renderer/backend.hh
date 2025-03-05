@@ -6,6 +6,7 @@
 #include "core/memory/deletion_stack.hh"
 #include "platform/window.hh"
 #include "renderer/render_backend.hh"
+#include "renderer/renderer.hh"
 #include "structs.hh"
 #include "utils/descriptors.hh"
 #include "utils/image.hh"
@@ -41,6 +42,11 @@ namespace Rune::Vulkan
     public:
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
+
+        virtual RenderBackendType type() final
+        {
+            return RenderBackendType::VULKAN;
+        }
 
         void init_imgui();
 

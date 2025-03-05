@@ -7,6 +7,8 @@
 
 namespace Rune
 {
+    enum class RenderBackendType;
+
     class RenderBackend
     {
     public:
@@ -14,6 +16,7 @@ namespace Rune
         virtual void init(Window* window, std::string_view app_name, i32 width,
                           i32 height) = 0;
 
+        virtual RenderBackendType type() = 0;
         virtual bool is_imgui_initialized() = 0;
         virtual void draw_frame() = 0;
         virtual void test_imgui() = 0;
