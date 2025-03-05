@@ -1,4 +1,4 @@
-add_library(vendor STATIC)
+add_library(vendor OBJECT)
 
 set_property(TARGET vendor PROPERTY POSITION_INDEPENDENT_CODE ON)
 

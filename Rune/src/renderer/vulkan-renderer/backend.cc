@@ -786,7 +786,7 @@ namespace Rune::Vulkan
         device_.destroyShaderModule(*gradient_shader);
 
         fs::path sky_shader_path =
-            "build/debug/Rune/src/renderer/shaders/sky.spv";
+            "build/debug/Rune/src/renderer/shaders/sky.comp.spv";
         auto sky_shader = load_shader(sky_shader_path, device_);
 
         if (!sky_shader)

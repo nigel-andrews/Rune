@@ -1,5 +1,5 @@
 add_library(
-  vulkan-backend STATIC backend.cc utils/descriptors.cc utils/image.cc
+  vulkan-backend OBJECT backend.cc utils/descriptors.cc utils/image.cc
                         utils/initializers.cc utils/shaders.cc)
 
 set(BUILD_SHARED_LIBS True)
@@ -23,7 +23,7 @@ if(Vulkan_FOUND)
 
   FetchContent_Declare(
     fetch_vk_bootstrap
-    GIT_REP OSITORY https://github.com/charles-lunarg/vk-bootstrap
+    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
     GIT_TAG v1.3.302)
   FetchContent_MakeAvailable(fetch_vk_bootstrap)
 

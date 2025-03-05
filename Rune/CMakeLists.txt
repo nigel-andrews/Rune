@@ -15,4 +15,5 @@ target_include_directories(compile_options INTERFACE src)
 
 set_target_properties(Rune PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF)
 
-target_link_libraries(Rune PUBLIC compile_options vendor application platform)
+target_link_libraries(Rune PUBLIC compile_options vendor application platform
+                                  core)
