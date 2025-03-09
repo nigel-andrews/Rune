@@ -39,6 +39,8 @@ FetchContent_Declare(
   GIT_TAG 3.3.9)
 FetchContent_MakeAvailable(glfw)
 
+set_target_properties(vendor PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF)
+
 target_sources(vendor PRIVATE ${vendor_SOURCES})
 
 target_compile_options(vendor PRIVATE $<$<CONFIG:Release>:-O3>

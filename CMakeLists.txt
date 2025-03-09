@@ -12,7 +12,6 @@ target_compile_options(
   compile_options
   INTERFACE -Wall
             -Wextra
-            -std=c++23
             $<$<CONFIG:Release>:-O3>
             $<$<CONFIG:Release>:-Werror>
             $<$<CONFIG:Debug>:-O0>

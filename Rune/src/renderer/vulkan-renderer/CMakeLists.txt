@@ -1,6 +1,4 @@
-add_library(
-  vulkan-backend OBJECT backend.cc utils/descriptors.cc utils/image.cc
-                        utils/initializers.cc utils/shaders.cc)
+add_library(vulkan-backend OBJECT backend.cc)
 
 set(BUILD_SHARED_LIBS True)
 
@@ -35,6 +33,11 @@ if(Vulkan_FOUND)
   FetchContent_MakeAvailable(vma)
 
   add_subdirectory(utils)
+
+  # NOTE: CMake format changes this but CMake Lint isn't happy when running the
+  # precommit.
+  set_target_properties(vulkan-backend PROPERTIES CXX_STANDARD 23)
+  set_target_properties(vulkan-backend PROPERTIES CXX_EXTENSIONS OFF)
 
   target_link_libraries(
     vulkan-backend

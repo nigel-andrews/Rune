@@ -401,10 +401,6 @@ namespace Rune::Vulkan
     void Backend::select_devices()
     {
         VkPhysicalDeviceVulkan13Features features13{};
-        // TODO: investigate more features
-        //
-        // Maybe this can be retrieved via a function plugged in by the
-        // client for more customisation ?
         features13.sType =
             VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
         features13.dynamicRendering = true;
