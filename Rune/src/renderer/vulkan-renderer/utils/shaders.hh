@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <span>
+#include <unordered_set>
 #include <vector>
 #include <vulkan/vulkan.hpp>
 
@@ -35,9 +37,16 @@ namespace Rune::Vulkan
         PipelineBuilder& set_color_format(vk::Format format);
         PipelineBuilder& set_depth_format(vk::Format format);
 
+        PipelineBuilder& add_dynamic_state(vk::DynamicState state);
+
+        void set_dynamic_states(std::span<vk::DynamicState> states);
+
         [[nodiscard]] std::optional<vk::Pipeline> build();
 
         void clear();
+
+        void clear_states();
+
         void clear_stages()
         {
             shader_stages_.clear();
@@ -56,6 +65,7 @@ namespace Rune::Vulkan
         vk::PipelineRenderingCreateInfo render_info_;
         vk::Format color_attachment_format_;
 
+        std::unordered_set<vk::DynamicState> dynamic_states_;
         std::vector<vk::PipelineShaderStageCreateInfo> shader_stages_;
     };
 

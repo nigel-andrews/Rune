@@ -1,12 +1,21 @@
 #include "shaders.hh"
 
 #include <fstream>
+#include <span>
 
 #include "core/logger/logger.hh"
 #include "utils/types.hh"
 
 namespace Rune::Vulkan
 {
+    namespace
+    {
+        constexpr std::array mandatory_states = {
+            vk::DynamicState::eViewport,
+            vk::DynamicState::eScissor,
+        };
+    }
+
     std::optional<vk::ShaderModule> load_shader(const fs::path& shader_path,
                                                 vk::Device device)
     {
@@ -44,6 +53,7 @@ namespace Rune::Vulkan
         , depth_stencil_{}
         , render_info_{}
         , color_attachment_format_{}
+        , dynamic_states_{ mandatory_states.cbegin(), mandatory_states.cend() }
     {}
 
     std::optional<vk::Pipeline> PipelineBuilder::build()
@@ -60,13 +70,11 @@ namespace Rune::Vulkan
 
         auto vertex_input_state = vk::PipelineVertexInputStateCreateInfo{};
 
-        std::array states = {
-            vk::DynamicState::eViewport,
-            vk::DynamicState::eScissor,
-        };
-
+        const auto states_vector =
+            std::vector(dynamic_states_.cbegin(), dynamic_states_.cend());
         auto dynamic_state =
-            vk::PipelineDynamicStateCreateInfo{}.setDynamicStates(states);
+            vk::PipelineDynamicStateCreateInfo{}.setDynamicStates(
+                states_vector);
 
         if (shader_stages_.empty())
             Logger::log(Logger::WARN, "Pipeline contains no shader stages...");
@@ -177,6 +185,28 @@ namespace Rune::Vulkan
         return *this;
     }
 
+    PipelineBuilder& PipelineBuilder::add_dynamic_state(vk::DynamicState state)
+    {
+        dynamic_states_.insert(state);
+        return *this;
+    }
+
+    void PipelineBuilder::set_dynamic_states(std::span<vk::DynamicState> states)
+    {
+#ifdef __cpp_lib_containers_ranges
+        dynamic_states_.insert_range(states);
+#else
+        dynamic_states_.insert(states.cbegin(), states.cend());
+#endif
+    }
+
+    void PipelineBuilder::clear_states()
+    {
+        dynamic_states_.clear();
+        dynamic_states_.insert(mandatory_states.cbegin(),
+                               mandatory_states.cend());
+    }
+
     void PipelineBuilder::clear()
     {
         pipeline_layout_ = vk::PipelineLayout{};
@@ -189,6 +219,7 @@ namespace Rune::Vulkan
         render_info_ = vk::PipelineRenderingCreateInfo{};
         color_attachment_format_ = vk::Format{};
 
-        shader_stages_.clear();
+        clear_states();
+        clear_stages();
     }
 } // namespace Rune::Vulkan
