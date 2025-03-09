@@ -20,4 +20,10 @@ namespace Rune::Vulkan
         vk::CommandPool command_pool;
         vk::CommandBuffer primary_buffer;
     };
+
+    struct Pipeline
+    {
+        vk::Pipeline handle;
+        vk::PipelineLayout layout;
+    };
 } // namespace Rune::Vulkan
