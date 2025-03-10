@@ -648,7 +648,7 @@ namespace Rune::Vulkan
         }
 
         draw_image_descriptors_ =
-            pool_.allocate(draw_image_descriptor_layouts_);
+            pool_.allocate(draw_image_descriptor_layouts_).front();
 
         auto image_info = vk::DescriptorImageInfo{}
                               .setImageLayout(vk::ImageLayout::eGeneral)

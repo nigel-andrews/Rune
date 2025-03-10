@@ -28,18 +28,18 @@ namespace Rune::Vulkan
         device_.destroyDescriptorPool(pool_);
     }
 
-    vk::DescriptorSet
+    std::vector<vk::DescriptorSet>
     DescriptorPool::allocate(std::span<vk::DescriptorSetLayout> layouts)
     {
         auto alloc_info = vk::DescriptorSetAllocateInfo{}
                               .setSetLayouts(layouts)
                               .setDescriptorPool(pool_);
 
-        vk::DescriptorSet set{};
-        VKWARN(device_.allocateDescriptorSets(&alloc_info, &set),
+        std::vector<vk::DescriptorSet> sets(layouts.size());
+        VKWARN(device_.allocateDescriptorSets(&alloc_info, sets.data()),
                "Failed to allocate descript sets");
 
-        return set;
+        return sets;
     }
 
     vk::DescriptorSetLayout DescriptorLayoutBuilder::build(

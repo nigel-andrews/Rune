@@ -30,7 +30,7 @@ namespace Rune::Vulkan
 
         void destroy();
 
-        [[nodiscard]] vk::DescriptorSet
+        [[nodiscard]] std::vector<vk::DescriptorSet>
         allocate(std::span<vk::DescriptorSetLayout> layouts);
 
     private:
