@@ -50,4 +50,6 @@ if(Vulkan_FOUND)
            VulkanMemoryAllocator)
 
   target_link_libraries(Rune PRIVATE vulkan-backend)
+
+  add_subdirectory(shaders)
 endif()

@@ -678,14 +678,14 @@ namespace Rune::Vulkan
 
     void Backend::init_triangle_pipeline()
     {
-        auto triangle_frag = load_shader(
-            "build/debug/Rune/src/renderer/shaders/triangle.frag.spv", device_);
+        auto triangle_frag =
+            load_shader(DEFAULT_SHADER_PATH "/triangle.frag.spv", device_);
 
         if (!triangle_frag)
             Logger::abort("failed to init triangle frag");
 
-        auto triangle_vert = load_shader(
-            "build/debug/Rune/src/renderer/shaders/triangle.vert.spv", device_);
+        auto triangle_vert =
+            load_shader(DEFAULT_SHADER_PATH "/triangle.vert.spv", device_);
 
         if (!triangle_vert)
             Logger::abort("failed to init triangle vert");
@@ -745,7 +745,7 @@ namespace Rune::Vulkan
         // FIXME: better path handling for this (maybe a define added in the
         // CMake after compiling the shader)
         fs::path gradient_shader_path =
-            "build/debug/Rune/src/renderer/shaders/gradient.comp.spv";
+            DEFAULT_SHADER_PATH "/gradient.comp.spv";
         auto gradient_shader = load_shader(gradient_shader_path, device_);
 
         if (!gradient_shader)
@@ -781,8 +781,7 @@ namespace Rune::Vulkan
 
         device_.destroyShaderModule(*gradient_shader);
 
-        fs::path sky_shader_path =
-            "build/debug/Rune/src/renderer/shaders/sky.comp.spv";
+        fs::path sky_shader_path = DEFAULT_SHADER_PATH "/sky.comp.spv";
         auto sky_shader = load_shader(sky_shader_path, device_);
 
         if (!sky_shader)
