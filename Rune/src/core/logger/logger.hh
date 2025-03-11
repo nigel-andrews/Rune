@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <source_location>
+#include <stdexcept>
 
 namespace Rune::Logger
 {
@@ -52,7 +53,7 @@ namespace Rune::Logger
         log(FATAL,
             std::format("{}({}:{}): {}", filename_from_location(location),
                         location.line(), location.column(), message));
-        std::abort();
+        throw std::runtime_error("Fatal error encountered !");
     }
 
     constexpr void
