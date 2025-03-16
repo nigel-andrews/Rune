@@ -1,7 +1,9 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <iostream>
 #include <source_location>
@@ -40,6 +42,10 @@ namespace Rune::Logger
             "\033[0;33m[WARN]\033[0m",
             "\033[0;31m[ERROR]\033[0m",
         };
+
+        auto time = std::chrono::system_clock::to_time_t(
+            std::chrono::system_clock::now());
+        std::clog << std::put_time(std::localtime(&time), "%F %T ");
         std::print(std::clog, "{}:", string_repr[log_level]);
         std::clog << std::boolalpha;
         ((std::clog << " " << std::forward<Ts>(args)), ...) << std::endl;
