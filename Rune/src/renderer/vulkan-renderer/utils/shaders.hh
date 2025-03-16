@@ -53,6 +53,8 @@ namespace Rune::Vulkan
         }
 
     private:
+        // Maybe add some way (flags ?) to check if every part has been
+        // initialized correctly ?
         vk::Device device_;
 
         vk::PipelineLayout pipeline_layout_;

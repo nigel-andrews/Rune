@@ -36,7 +36,7 @@ namespace Rune::Vulkan
 
     // Return the the new layout used by the image
     vk::ImageLayout
-    transition_image(vk::CommandBuffer command, VkImage image,
+    transition_image(vk::CommandBuffer command, vk::Image image,
                      const ImageTransitionInfo& transition_info);
 
     void copy_images(vk::CommandBuffer command, vk::Image src, vk::Image dst,

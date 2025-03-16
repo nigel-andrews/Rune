@@ -19,7 +19,6 @@ namespace Rune
         virtual RenderBackendType type() = 0;
         virtual bool is_imgui_initialized() = 0;
         virtual void draw_frame() = 0;
-        virtual void test_imgui() = 0;
         virtual void cleanup() = 0;
     };
 } // namespace Rune

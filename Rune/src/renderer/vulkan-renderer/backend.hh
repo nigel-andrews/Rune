@@ -18,25 +18,6 @@ namespace Rune::Vulkan
     constexpr auto MAX_IN_FLIGHT = 2;
 #endif
 
-    // FIXME: these are entirely vkguide specific and to be removed
-    struct ComputePushConstants
-    {
-        glm::vec4 data1;
-        glm::vec4 data2;
-        glm::vec4 data3;
-        glm::vec4 data4;
-    };
-
-    struct ComputeEffect
-    {
-        const char* name;
-
-        vk::Pipeline pipeline;
-        vk::PipelineLayout layout;
-
-        ComputePushConstants data;
-    };
-
     class Backend final : public RenderBackend
     {
     public:
@@ -49,8 +30,6 @@ namespace Rune::Vulkan
         }
 
         void init_imgui();
-
-        void test_imgui() final;
 
         bool is_imgui_initialized() final
         {
@@ -72,19 +51,18 @@ namespace Rune::Vulkan
         void init_swapchain(i32 width, i32 height);
         void create_command_pools_and_buffers();
         void init_sync_structs();
-        void init_descriptors();
-        void init_pipelines();
+        void init_pipelines_descriptors();
+        void init_default_pipelines();
 
         void shutdown_imgui();
 
-        // FIXME: from vkguide
-        void init_background_pipelines();
-        void init_triangle_pipeline();
-
         void imgui_backend_frame(vk::CommandBuffer command, vk::ImageView view);
 
-        void draw_background(vk::CommandBuffer command);
-        void draw_geometry(vk::CommandBuffer command);
+        void draw_graphics(vk::CommandBuffer command);
+        void transfer_to_swapchain(vk::CommandBuffer command,
+                                   u32 swapchain_index);
+        void submit_command(vk::CommandBuffer command,
+                            const RenderData& current_frame);
 
     private:
         Window* window_;
@@ -104,25 +82,15 @@ namespace Rune::Vulkan
         vk::SurfaceKHR surface_;
         vk::Queue queue_;
         vk::DescriptorPool imgui_descriptor_pool_;
+
         VmaAllocator allocator_ = VK_NULL_HANDLE;
         DescriptorPool pool_;
 
-        // maybe a map to be able to distinguish layouts
-        std::vector<vk::DescriptorSetLayout> draw_image_descriptor_layouts_;
-        vk::DescriptorSet draw_image_descriptors_;
-
-        // FIXME: from vkguide
-        //
-        vk::PipelineLayout gradient_pipeline_layout_;
-
-        vk::PipelineLayout triangle_layout_;
-        vk::Pipeline triangle_pipeline_;
-
-        std::vector<ComputeEffect> background_effects_;
-        int current_effect_;
+        // Basic pipeline for mesh data
+        Pipeline default_graphics_pipeline_;
 
         Image draw_image_;
-        vk::Extent2D draw_image_extent_;
+        vk::ImageLayout current_draw_image_layout_;
 
         vk::DebugUtilsMessengerEXT debug_messenger_;
         std::array<RenderData, MAX_IN_FLIGHT> frames_;

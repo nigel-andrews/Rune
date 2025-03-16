@@ -15,7 +15,7 @@ namespace Rune::Vulkan
             .setLayerCount(VK_REMAINING_ARRAY_LAYERS);
     }
 
-    vk::ImageLayout transition_image(vk::CommandBuffer command, VkImage image,
+    vk::ImageLayout transition_image(vk::CommandBuffer command, vk::Image image,
                                      const ImageTransitionInfo& transition_info)
     {
         vk::ImageMemoryBarrier2 image_barrier{};

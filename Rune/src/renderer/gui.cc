@@ -19,7 +19,7 @@ namespace Rune
         ImGui::NewFrame();
 
         // FIXME: Better usage of this
-        backend_->test_imgui();
+        // backend_->test_imgui();
 
         ImGui::Render();
     }

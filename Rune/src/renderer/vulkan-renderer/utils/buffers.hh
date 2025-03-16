@@ -22,6 +22,7 @@ namespace Rune::Vulkan
         void destroy();
 
     private:
+        Buffer();
         VmaAllocator allocator_;
     };
 } // namespace Rune::Vulkan

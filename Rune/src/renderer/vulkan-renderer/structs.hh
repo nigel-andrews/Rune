@@ -6,6 +6,7 @@
 
 namespace Rune::Vulkan
 {
+    // FIXME: split this in multiple headers
     struct QueueFamilies
     {
         u32 graphics;
@@ -25,5 +26,10 @@ namespace Rune::Vulkan
     {
         vk::Pipeline handle;
         vk::PipelineLayout layout;
+
+        constexpr operator vk::Pipeline()
+        {
+            return handle;
+        }
     };
 } // namespace Rune::Vulkan

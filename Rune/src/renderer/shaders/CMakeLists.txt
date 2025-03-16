@@ -26,8 +26,3 @@ function(compile_glsl shader_name ext)
     DEPENDS ${shader_output}
     COMMENT "")
 endfunction()
-
-compile_glsl(gradient comp)
-compile_glsl(sky comp)
-compile_glsl(triangle vert)
-compile_glsl(triangle frag)
