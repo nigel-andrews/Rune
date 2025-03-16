@@ -171,7 +171,7 @@ namespace Rune::Vulkan
     void Backend::draw_geometry(vk::CommandBuffer command)
     {
         auto render_attach_info = attachment_info(
-            draw_image_.image_view, vk::ImageLayout::eColorAttachmentOptimal);
+            draw_image_.view, vk::ImageLayout::eColorAttachmentOptimal);
 
         auto render_info =
             rendering_info(draw_image_extent_, render_attach_info);
@@ -232,43 +232,51 @@ namespace Rune::Vulkan
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
         transition_image(command, draw_image_.image,
-                         vk::ImageLayout::eUndefined,
-                         vk::ImageLayout::eGeneral);
+                         { .old_layout = vk::ImageLayout::eUndefined,
+                           .new_layout = vk::ImageLayout::eGeneral });
 
         draw_background(command);
 
-        transition_image(command, draw_image_.image, vk::ImageLayout::eGeneral,
-                         vk::ImageLayout::eColorAttachmentOptimal);
+        transition_image(
+            command, draw_image_.image,
+            { .old_layout = vk::ImageLayout::eGeneral,
+              .new_layout = vk::ImageLayout::eColorAttachmentOptimal });
 
         draw_geometry(command);
 
-        transition_image(command, draw_image_.image,
-                         vk::ImageLayout::eColorAttachmentOptimal,
-                         vk::ImageLayout::eTransferSrcOptimal);
+        transition_image(
+            command, draw_image_.image,
+            { .old_layout = vk::ImageLayout::eColorAttachmentOptimal,
+              .new_layout = vk::ImageLayout::eTransferSrcOptimal });
 
         auto swapchain_image = swapchain_images_[swapchain_image_index];
 
-        transition_image(command, swapchain_image, vk::ImageLayout::eUndefined,
-                         vk::ImageLayout::eTransferDstOptimal);
+        transition_image(
+            command, swapchain_image,
+            { .old_layout = vk::ImageLayout::eUndefined,
+              .new_layout = vk::ImageLayout::eTransferDstOptimal });
 
         copy_images(command, draw_image_.image, swapchain_image,
                     draw_image_extent_, swapchain_extent_);
 
         if (imgui_initialized_)
         {
-            transition_image(command, swapchain_image,
-                             vk::ImageLayout::eTransferDstOptimal,
-                             vk::ImageLayout::eColorAttachmentOptimal);
+            transition_image(
+                command, swapchain_image,
+                { .old_layout = vk::ImageLayout::eTransferDstOptimal,
+                  .new_layout = vk::ImageLayout::eColorAttachmentOptimal });
             imgui_backend_frame(command,
                                 swapchain_images_view_[swapchain_image_index]);
-            transition_image(command, swapchain_image,
-                             vk::ImageLayout::eColorAttachmentOptimal,
-                             vk::ImageLayout::ePresentSrcKHR);
+            transition_image(
+                command, swapchain_image,
+                { .old_layout = vk::ImageLayout::eColorAttachmentOptimal,
+                  .new_layout = vk::ImageLayout::ePresentSrcKHR });
         }
         else
-            transition_image(command, swapchain_image,
-                             vk::ImageLayout::eTransferDstOptimal,
-                             vk::ImageLayout::ePresentSrcKHR);
+            transition_image(
+                command, swapchain_image,
+                { .old_layout = vk::ImageLayout::eTransferDstOptimal,
+                  .new_layout = vk::ImageLayout::ePresentSrcKHR });
 
         command.end();
 
@@ -523,10 +531,10 @@ namespace Rune::Vulkan
                 device_.destroyImageView(image_view);
         });
 
-        draw_image_.image_format = vk::Format::eR16G16B16A16Sfloat;
-        draw_image_.image_extent =
+        draw_image_.format = vk::Format::eR16G16B16A16Sfloat;
+        draw_image_.extent =
             vk::Extent3D(window_->width_get(), window_->height_get(), 1);
-        auto [x, y, _] = draw_image_.image_extent;
+        auto [x, y, _] = draw_image_.extent;
         draw_image_extent_ = vk::Extent2D{ x, y };
 
         vk::ImageUsageFlags flags = vk::ImageUsageFlagBits::eTransferSrc
@@ -537,8 +545,8 @@ namespace Rune::Vulkan
         VkImageCreateInfo image_info =
             vk::ImageCreateInfo{}
                 .setImageType(vk::ImageType::e2D)
-                .setFormat(draw_image_.image_format)
-                .setExtent(draw_image_.image_extent)
+                .setFormat(draw_image_.format)
+                .setExtent(draw_image_.extent)
                 .setMipLevels(1)
                 .setArrayLayers(1)
                 .setSamples(vk::SampleCountFlagBits::e1)
@@ -567,19 +575,19 @@ namespace Rune::Vulkan
         vk::ImageViewCreateInfo view_info{};
         view_info.setImage(draw_image_.image)
             .setViewType(vk::ImageViewType::e2D)
-            .setFormat(draw_image_.image_format)
+            .setFormat(draw_image_.format)
             .subresourceRange.setBaseMipLevel(0)
             .setLevelCount(1)
             .setBaseArrayLayer(0)
             .setLayerCount(1)
             .setAspectMask(vk::ImageAspectFlagBits::eColor);
 
-        VKASSERT(device_.createImageView(&view_info, nullptr,
-                                         &draw_image_.image_view),
-                 "Failed to create image view");
+        VKASSERT(
+            device_.createImageView(&view_info, nullptr, &draw_image_.view),
+            "Failed to create image view");
 
         deletion_stack_.push(
-            [this] { device_.destroyImageView(draw_image_.image_view); });
+            [this] { device_.destroyImageView(draw_image_.view); });
 
         Logger::log(Logger::INFO, "Created swapchain and draw image");
     }
@@ -652,7 +660,7 @@ namespace Rune::Vulkan
 
         auto image_info = vk::DescriptorImageInfo{}
                               .setImageLayout(vk::ImageLayout::eGeneral)
-                              .setImageView(draw_image_.image_view);
+                              .setImageView(draw_image_.view);
 
         auto write_descriptor_set =
             vk::WriteDescriptorSet{}
@@ -705,7 +713,7 @@ namespace Rune::Vulkan
                 .disable_multisampling()
                 .disable_depth_test()
                 .disable_blending()
-                .set_color_format(draw_image_.image_format)
+                .set_color_format(draw_image_.format)
                 .set_depth_format(vk::Format::eUndefined);
 
         auto result =

@@ -13,8 +13,6 @@ namespace Rune
         VULKAN
     };
 
-    class RenderBackend;
-
     class Renderer
     {
     public:

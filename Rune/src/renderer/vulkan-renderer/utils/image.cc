@@ -9,28 +9,28 @@ namespace Rune::Vulkan
         // WARN: Default for now from VkGuide
         vk::ImageSubresourceRange sub_image{};
 
-        // XXX: check validity of this
+        // TODO: check validity of this
         return sub_image.setAspectMask(aspect_mask)
             .setLevelCount(VK_REMAINING_MIP_LEVELS)
             .setLayerCount(VK_REMAINING_ARRAY_LAYERS);
     }
 
-    void transition_image(vk::CommandBuffer command, VkImage image,
-                          vk::ImageLayout current_layout,
-                          vk::ImageLayout new_layout)
+    vk::ImageLayout transition_image(vk::CommandBuffer command, VkImage image,
+                                     const ImageTransitionInfo& transition_info)
     {
         vk::ImageMemoryBarrier2 image_barrier{};
 
-        // WARN: Inefficient for now, still figuring this out
-        image_barrier.setSrcStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+        // TODO: have access mask in transition_info
+        image_barrier.setSrcStageMask(transition_info.src_stage)
             .setSrcAccessMask(vk::AccessFlagBits2::eMemoryWrite)
-            .setDstStageMask(vk::PipelineStageFlagBits2::eAllCommands)
+            .setDstStageMask(transition_info.dst_stage)
             .setDstAccessMask(vk::AccessFlagBits2::eMemoryWrite
                               | vk::AccessFlagBits2::eMemoryRead)
-            .setOldLayout(current_layout)
-            .setNewLayout(new_layout)
+            .setOldLayout(transition_info.old_layout)
+            .setNewLayout(transition_info.new_layout)
             .setSubresourceRange(image_subresource_range(vk::ImageAspectFlags{
-                new_layout == vk::ImageLayout::eDepthAttachmentOptimal
+                transition_info.new_layout
+                        == vk::ImageLayout::eDepthAttachmentOptimal
                     ? vk::ImageAspectFlagBits::eDepth
                     : vk::ImageAspectFlagBits::eColor }))
             .setImage(image);
@@ -39,6 +39,8 @@ namespace Rune::Vulkan
         command.pipelineBarrier2(
             dep_info.setImageMemoryBarrierCount(1).setImageMemoryBarriers(
                 image_barrier));
+
+        return transition_info.new_layout;
     }
 
     // If both extents are equal, maybe use copy instead of blit ?
