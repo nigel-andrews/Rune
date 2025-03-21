@@ -15,13 +15,12 @@ namespace Rune
 
     void Gui::draw_frame()
     {
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        // FIXME: this is awkward to use whether with Vulkan or GL.
+        // backend_->imgui_frame();
 
-        // FIXME: Better usage of this
-        // backend_->test_imgui();
-
-        ImGui::Render();
+        // The code should call begin imgui frame per backend and do the draw
+        // commands and render, then draw_frame should handle the per backend
+        // render draw data and submission
     }
 
     void Gui::shutdown()

@@ -2,7 +2,7 @@ add_library(vendor OBJECT)
 
 set_property(TARGET vendor PROPERTY POSITION_INDEPENDENT_CODE ON)
 
-target_include_directories(vendor PUBLIC imgui)
+target_include_directories(vendor PUBLIC imgui glad/include)
 
 file(
   GLOB
@@ -10,8 +10,10 @@ file(
   "imgui/*.cpp"
   "imgui/*.h"
   "imgui/backends/imgui_impl_glfw.cpp"
+  "imgui/backends/imgui_impl_opengl3.cpp"
   "imgui/backends/imgui_impl_vulkan.cpp"
-  "imgui/misc/cpp/imgui_stdlib.*")
+  "imgui/misc/cpp/imgui_stdlib.*"
+  "glad/src/glad.c")
 
 FetchContent_Declare(
   glm
@@ -35,7 +37,7 @@ set(GLFW_INSTALL
 FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.4)
+  GIT_TAG 3.3.9)
 FetchContent_MakeAvailable(glfw)
 
 set_target_properties(vendor PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF)

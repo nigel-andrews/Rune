@@ -29,5 +29,5 @@ function(compile_glsl shader_name ext)
     COMMENT "")
 endfunction()
 
-# FIXME: Handle multiple renderers
 add_subdirectory(vulkan-renderer)
+add_subdirectory(opengl-renderer)

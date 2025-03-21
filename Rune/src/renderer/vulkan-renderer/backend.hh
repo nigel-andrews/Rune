@@ -37,6 +37,8 @@ namespace Rune::Vulkan
         }
 
         void draw_frame() final;
+        // TODO: ImGui command buffer
+        void imgui_frame() final;
         void cleanup() final;
 
         const RenderData& current_frame_get();

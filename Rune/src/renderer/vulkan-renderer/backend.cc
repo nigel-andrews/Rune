@@ -111,6 +111,8 @@ namespace Rune::Vulkan
                                       vk::ImageView view)
     {
         ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
         auto color_attachment =
             attachment_info(view, vk::ImageLayout::eColorAttachmentOptimal);
@@ -118,9 +120,17 @@ namespace Rune::Vulkan
 
         command.beginRendering(render_info);
 
+        ImGui::ShowDemoWindow();
+        ImGui::Render();
+
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 
         command.endRendering();
+    }
+
+    void Backend::imgui_frame()
+    {
+        // TODO:
     }
 
     void Backend::draw_graphics(vk::CommandBuffer command)
@@ -602,7 +612,7 @@ namespace Rune::Vulkan
 
     void Backend::init_default_pipelines()
     {
-#ifndef DEFAULT_SHADER_PATH
+#ifndef RUNE_VULKAN_DEFAULT_SHADER_PATH
         Logger::abort("Default shaders not found !");
 #endif
         auto default_pipeline_create_info =
@@ -614,16 +624,16 @@ namespace Rune::Vulkan
         PipelineBuilder graphics_builder{ device_,
                                           default_graphics_pipeline_.layout };
 
-        auto default_vertex_shader =
-            load_shader(DEFAULT_SHADER_PATH "/default.vert.spv", device_);
+        auto default_vertex_shader = load_shader(
+            RUNE_VULKAN_DEFAULT_SHADER_PATH "/default.vert.spv", device_);
         if (!default_vertex_shader)
             Logger::abort("Failed to create default vertex shader !");
 
         graphics_builder.set_shader(vk::ShaderStageFlagBits::eVertex,
                                     *default_vertex_shader);
 
-        auto default_frag_shader =
-            load_shader(DEFAULT_SHADER_PATH "/default.frag.spv", device_);
+        auto default_frag_shader = load_shader(
+            RUNE_VULKAN_DEFAULT_SHADER_PATH "/default.frag.spv", device_);
         if (!default_frag_shader)
             Logger::abort("Failed to create default fragment shader !");
 

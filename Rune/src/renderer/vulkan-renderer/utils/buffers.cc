@@ -1,7 +1,5 @@
 #include "buffers.hh"
 
-#include <stdexcept>
-
 #include "core/logger/logger.hh"
 
 namespace Rune::Vulkan
@@ -24,10 +22,7 @@ namespace Rune::Vulkan
                             &allocated_buffer, &buffer.allocation,
                             &buffer.alloc_info)
             != VK_SUCCESS)
-        {
-            Logger::error("Failed to create buffer");
-            throw std::runtime_error("Failed to create buffer");
-        }
+            Logger::error("Failed to create buffer", true);
 
         buffer.allocator_ = allocator;
 

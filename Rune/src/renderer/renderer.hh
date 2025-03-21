@@ -11,7 +11,7 @@ namespace Rune
     enum class RenderBackendType
     {
         VULKAN,
-        // GL,
+        GL,
     };
 
     class Renderer
