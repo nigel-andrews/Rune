@@ -63,11 +63,13 @@ namespace Rune::Logger
     }
 
     constexpr void
-    error(std::string_view message,
+    error(std::string_view message, bool throws = false,
           std::source_location location = std::source_location::current())
     {
         log(ERROR,
             std::format("{}({}:{}): {}", filename_from_location(location),
                         location.line(), location.column(), message));
+        if (throws)
+            throw std::runtime_error("");
     }
 } // namespace Rune::Logger
