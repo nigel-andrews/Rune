@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string_view>
 
 #include "platform/window.hh"
@@ -20,5 +21,8 @@ namespace Rune
         virtual bool is_imgui_initialized() = 0;
         virtual void draw_frame() = 0;
         virtual void cleanup() = 0;
+        // TODO: build shader program function (probably)
     };
+
+    std::unique_ptr<RenderBackend> make_backend(RenderBackendType type);
 } // namespace Rune

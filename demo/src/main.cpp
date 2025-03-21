@@ -26,7 +26,8 @@ int main()
 {
     auto app = std::unique_ptr<Rune::Application>(create_application());
 
-    app->config_set({ "Demo application", 1280, 720 });
+    app->config_set(
+        { "Demo application", 1280, 720, Rune::RenderBackendType::VULKAN });
 
     app->start();
     app->run();

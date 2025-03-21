@@ -1,4 +1,4 @@
-target_sources(Rune PRIVATE renderer.cc gui.cc)
+target_sources(Rune PRIVATE render_backend.cc renderer.cc gui.cc)
 
 # FIXME: Have the possibility to pass folder as argument
 function(compile_glsl shader_name ext)

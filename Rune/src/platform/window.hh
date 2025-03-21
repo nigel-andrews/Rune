@@ -8,13 +8,16 @@
 
 namespace Rune
 {
+    enum class RenderBackendType;
+
     class Window : NonCopyable
     {
     public:
         constexpr Window() noexcept = default;
         ~Window();
 
-        void init(std::string_view application_name, i32 width, i32 height);
+        void init(std::string_view application_name, RenderBackendType type,
+                  i32 width, i32 height);
         void destroy();
         bool should_close();
 

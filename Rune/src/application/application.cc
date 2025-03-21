@@ -14,8 +14,9 @@ namespace Rune
         else
             Logger::log(Logger::INFO, "Initialized GLFW");
 
-        window_.init(config_.name, config_.width, config_.height);
-        renderer_.init(RenderBackendType::VULKAN, config_, &window_);
+        window_.init(config_.name, config_.backend_type, config_.width,
+                     config_.height);
+        renderer_.init(config_.backend_type, config_, &window_);
 
         Logger::log(
             Logger::Level::INFO, "Init application with window :", config_.name,

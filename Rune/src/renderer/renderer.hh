@@ -10,7 +10,8 @@ namespace Rune
 {
     enum class RenderBackendType
     {
-        VULKAN
+        VULKAN,
+        // GL,
     };
 
     class Renderer

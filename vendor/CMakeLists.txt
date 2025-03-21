@@ -32,11 +32,10 @@ set(GLFW_INSTALL
     OFF
     CACHE BOOL "" FORCE)
 
-# FIXME: Use 3.4
 FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
-  GIT_TAG 3.3.9)
+  GIT_TAG 3.4)
 FetchContent_MakeAvailable(glfw)
 
 set_target_properties(vendor PROPERTIES CXX_STANDARD 23 CXX_EXTENSIONS OFF)

@@ -2,24 +2,14 @@
 
 #include <memory>
 
-// FIXME: Defines
-#if 1
-#    include "vulkan-renderer/backend.hh"
-#endif
+#include "renderer/render_backend.hh"
 
 namespace Rune
 {
     void Renderer::init(RenderBackendType type, const AppConfig& config,
                         Window* window)
     {
-        switch (type)
-        {
-        // FIXME: abstract this behind a factory
-        case RenderBackendType::VULKAN:
-            backend_ = std::make_unique<Vulkan::Backend>();
-            break;
-        }
-
+        backend_ = make_backend(type);
         gui_.init_gui(backend_.get());
         backend_->init(window, config.name, config.width, config.height);
     }

@@ -24,7 +24,7 @@ namespace Rune::Vulkan
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
 
-        virtual RenderBackendType type() final
+        RenderBackendType type() final
         {
             return RenderBackendType::VULKAN;
         }
