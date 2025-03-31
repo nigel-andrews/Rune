@@ -10,8 +10,9 @@ namespace Rune
                         Window* window)
     {
         backend_ = make_backend(type);
-        gui_.init_gui(backend_.get());
         backend_->init(window, config.name, config.width, config.height);
+        gui_.init_gui();
+        backend_->init_gui(&gui_);
     }
 
     RenderBackendType Renderer::type_get() const
@@ -21,11 +22,6 @@ namespace Rune
 
     void Renderer::draw_frame()
     {
-        if (backend_->is_imgui_initialized())
-        {
-            gui_.draw_frame();
-        }
-
         backend_->draw_frame();
     }
 

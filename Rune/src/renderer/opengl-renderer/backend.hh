@@ -16,9 +16,8 @@ namespace Rune::GL
             return RenderBackendType::GL;
         }
 
-        bool is_imgui_initialized() final;
         void draw_frame() final;
-        void imgui_frame() final;
+        void init_gui(Gui* gui) final;
         void cleanup() final;
 
     private:
@@ -34,6 +33,7 @@ namespace Rune::GL
         u32 vbo_;
         bool imgui_initialized_ = false;
         std::array<float, 4> clear_value_;
+        Gui* gui_;
         struct
         {
             i32 width;

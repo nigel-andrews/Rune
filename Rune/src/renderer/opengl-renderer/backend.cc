@@ -105,7 +105,6 @@ namespace Rune::GL
 
         init_gl();
         init_debug_callbacks();
-        init_imgui();
         init_default_program();
     }
 
@@ -137,10 +136,19 @@ namespace Rune::GL
 
     void Backend::init_imgui()
     {
+        if (!gui_)
+            return;
+
         ImGui_ImplGlfw_InitForOpenGL(window_->get(), true);
         ImGui_ImplOpenGL3_Init();
         imgui_initialized_ = true;
         Logger::log(Logger::INFO, "Initialized imgui for OpenGl backend");
+    }
+
+    void Backend::init_gui(Gui* gui)
+    {
+        gui_ = gui;
+        init_imgui();
     }
 
     void Backend::init_default_program()
@@ -189,31 +197,21 @@ namespace Rune::GL
         Logger::log(Logger::INFO, "Initialized default program");
     }
 
-    bool Backend::is_imgui_initialized()
-    {
-        return imgui_initialized_;
-    }
-
-    void Backend::imgui_frame()
-    {
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
-        ImGui::ShowDemoWindow();
-
-        ImGui::EndFrame();
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    }
-
     void Backend::draw_frame()
     {
         glBindVertexArray(vao_);
         glUseProgram(default_program_);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
-        imgui_frame();
+        if (gui_)
+        {
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+
+            gui_->draw_frame();
+
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        }
 
         glfwSwapBuffers(window_->get());
 

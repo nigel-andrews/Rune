@@ -5,22 +5,20 @@
 
 namespace Rune
 {
-    void Gui::init_gui(RenderBackend* backend)
+    void Gui::init_gui()
     {
         IMGUI_CHECKVERSION();
 
         ImGui::CreateContext();
-        backend_ = backend;
     }
 
     void Gui::draw_frame()
     {
-        // FIXME: this is awkward to use whether with Vulkan or GL.
-        // backend_->imgui_frame();
+        ImGui::NewFrame();
 
-        // The code should call begin imgui frame per backend and do the draw
-        // commands and render, then draw_frame should handle the per backend
-        // render draw data and submission
+        ImGui::ShowDemoWindow();
+
+        ImGui::Render();
     }
 
     void Gui::shutdown()

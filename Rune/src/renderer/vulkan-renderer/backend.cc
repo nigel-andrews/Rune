@@ -68,12 +68,19 @@ namespace Rune::Vulkan
         init_pipelines_descriptors();
 
         initialized_ = true;
+    }
 
+    void Backend::init_gui(Gui* gui)
+    {
+        gui_ = gui;
         init_imgui();
     }
 
     void Backend::init_imgui()
     {
+        if (!gui_)
+            return;
+
         ImGui_ImplGlfw_InitForVulkan(window_->get(), true);
 
         imgui_descriptor_pool_ = init_imgui_descriptors(device_);
@@ -101,7 +108,6 @@ namespace Rune::Vulkan
         ImGui_ImplVulkan_Init(&info);
         ImGui_ImplVulkan_CreateFontsTexture();
 
-        imgui_initialized_ = true;
         Logger::log(Logger::INFO, "ImGui initialized for Vulkan backend");
     }
 
@@ -112,7 +118,6 @@ namespace Rune::Vulkan
     {
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
 
         auto color_attachment =
             attachment_info(view, vk::ImageLayout::eColorAttachmentOptimal);
@@ -120,17 +125,11 @@ namespace Rune::Vulkan
 
         command.beginRendering(render_info);
 
-        ImGui::ShowDemoWindow();
-        ImGui::Render();
+        gui_->draw_frame();
 
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command);
 
         command.endRendering();
-    }
-
-    void Backend::imgui_frame()
-    {
-        // TODO:
     }
 
     void Backend::draw_graphics(vk::CommandBuffer command)
@@ -138,7 +137,6 @@ namespace Rune::Vulkan
         auto color_attachment = attachment_info(
             draw_image_.view, vk::ImageLayout::eColorAttachmentOptimal);
         auto render_info = rendering_info(swapchain_extent_, color_attachment);
-        ;
 
         current_draw_image_layout_ = transition_image(
             command, draw_image_,
@@ -189,12 +187,13 @@ namespace Rune::Vulkan
             vk::Extent2D{ draw_image_.extent.width, draw_image_.extent.height },
             swapchain_extent_);
 
-        if (imgui_initialized_)
+        if (gui_)
         {
             transition_image(
                 command, swapchain_image,
                 { .old_layout = vk::ImageLayout::eTransferDstOptimal,
                   .new_layout = vk::ImageLayout::eColorAttachmentOptimal });
+
             imgui_backend_frame(command,
                                 swapchain_images_view_[swapchain_index]);
             transition_image(
@@ -282,7 +281,7 @@ namespace Rune::Vulkan
 
     void Backend::shutdown_imgui()
     {
-        if (imgui_initialized_)
+        if (gui_)
         {
             ImGui_ImplVulkan_Shutdown();
             device_.destroyDescriptorPool(imgui_descriptor_pool_);

@@ -24,6 +24,8 @@ namespace Rune::Vulkan
         void init(Window* window, std::string_view app_name, i32 width,
                   i32 height) final;
 
+        void init_gui(Gui* gui) final;
+
         RenderBackendType type() final
         {
             return RenderBackendType::VULKAN;
@@ -31,14 +33,7 @@ namespace Rune::Vulkan
 
         void init_imgui();
 
-        bool is_imgui_initialized() final
-        {
-            return imgui_initialized_;
-        }
-
         void draw_frame() final;
-        // TODO: ImGui command buffer
-        void imgui_frame() final;
         void cleanup() final;
 
         const RenderData& current_frame_get();
@@ -96,8 +91,8 @@ namespace Rune::Vulkan
 
         vk::DebugUtilsMessengerEXT debug_messenger_;
         std::array<RenderData, MAX_IN_FLIGHT> frames_;
+        Gui* gui_;
         u64 current_frame_;
         bool initialized_ = false;
-        bool imgui_initialized_ = false;
     };
 } // namespace Rune::Vulkan
